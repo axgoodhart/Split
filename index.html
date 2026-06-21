@@ -1005,11 +1005,16 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
           return;
         }
 
-        // Collect all AND terms for client-side highlighting
-        const andTerms = payload.searches
-          .flatMap(s => s.terms)
-          .filter(t => t.operator === 'AND' && t.value)
-          .map(t => t.value.toLowerCase());
+        const searchGroups = payload.searches.map(search => ({
+          includeTerms: search.terms
+            .filter(t => t.operator === 'AND' && t.value)
+            .map(t => t.value.toLowerCase().trim())
+            .filter(Boolean),
+          excludeTerms: search.terms
+            .filter(t => t.operator === 'WITHOUT' && (t.exclude || t.value))
+            .map(t => (t.exclude || t.value).toLowerCase().trim())
+            .filter(Boolean)
+        }));
 
         for (const result of serverResults) {
           try {
@@ -1023,10 +1028,19 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
                 if (!msg.message?.content?.parts?.length) return;
                 const textParts = getMessageTextParts(msg.message);
                 if (textParts.length === 0) return;
+                const lowerMessage = textParts.join('\n').toLowerCase();
+                const matchingGroups = searchGroups.filter(group =>
+                  group.includeTerms.length > 0 &&
+                  group.includeTerms.every(term => lowerMessage.includes(term)) &&
+                  group.excludeTerms.every(term => !lowerMessage.includes(term))
+                );
+                if (matchingGroups.length === 0) return;
+
+                const termsToHighlight = [...new Set(matchingGroups.flatMap(group => group.includeTerms))];
                 const matchedIndices = [];
                 textParts.forEach((part, partIndex) => {
                   const lowerPart = part.toLowerCase();
-                  for (const term of andTerms) {
+                  for (const term of termsToHighlight) {
                     let startPos = 0;
                     while (true) {
                       const foundAt = lowerPart.indexOf(term, startPos);
