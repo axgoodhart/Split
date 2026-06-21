@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Conversation Viewer</title>
+  <style>
+    html {background:black;}
+    body {
+      font-family:'Anxler', 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+      margin: 0;
+      display: flex;
+      box-shadow:inset 0 0 10px white;
+      border-radius:20px;
+      border:4px solid rgb(35, 104, 255); 
+background-image:url(bg.png);
+background-size:cover;
+      color: white;
+      height: 100vh;
+      perspective: 1000px;
+      overflow:hidden;
+    }
+    @keyframes hueroto {
+      0% { filter: hue-rotate(0deg); }
+      100% { filter: hue-rotate(360deg); }
+    }
+    #sidebar {
+      width: 35%;
+      backdrop-filter:blur(12px);
+      overflow: hidden auto;
+      border-right: 4px double rgb(0, 0, 0);
+      border-radius:14px;
+      display: flex;
+      flex-direction: column;
+
+      box-shadow:6px 0px 20px rgba(0,0,0,0.4);;
+      align-items: stretch;
+    }
+    #search-container {
+      padding: 10px;
+      position: relative;
+      flex-shrink: 0;
+      margin-bottom:10px;
+    }
+
+    /* === Boolean Search Styles === */
+    #boolean-search-area {
+      display: flex;
+      background:linear-gradient(to bottom, rgb(144, 171, 238), white 120%);;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #ccc;
+      border-radius: 114px;
+      padding: 4px 8px;
+      min-height: 30px;
+      transition: all 0.3s ease;
+      cursor: text;
+    }
+    #boolean-search-area:focus-within {
+      min-height: 44px;
+      background:linear-gradient(to bottom, blue, darkblue);
+      border-color: #66d366;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    }
+    .bool-search-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: white;
+      font-family: Poiret One;
+      font-size: 22px;
+      -webkit-text-stroke:1px white;;
+      min-width: 60px;
+      flex: 1;
+      padding: 2px 4px;
+    }
+    .bool-search-input::placeholder {
+      color: black;      -webkit-text-stroke:1px blue;
+      font-style: italic;
+    }
+    .bool-search-input.truncated {
+      max-width: 80px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .bool-pill {
+      display: inline-flex;
+      align-items: center;
+      background: #1a7a2e;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+      user-select: none;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .bool-pill:hover {
+      background: #25a63a;
+    }
+    .bool-pill.without {
+      background: #8b2252;
+    }
+    .bool-pill.without:hover {
+      background: #b0306e;
+    }
+    .bool-pill.or {
+      background: #2e5a9e;
+    }
+    .bool-pill.or:hover {
+      background: #3a72c4;
+    }
+    .bool-pill.date-range {
+      background: #7a5a1a;
+    }
+    .bool-pill.date-range:hover {
+      background: #a07825;
+    }
+    .bool-pill .pill-remove {
+      margin-left: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+    .bool-pill .pill-remove:hover {
+      opacity: 1;
+    }
+    #bool-actions {
+      display: none;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    #bool-actions button {
+      background: black;
+      border: 1px solid #555;
+      color: #66d366;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 50%;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      z-index:9999;
+      transition: all 0.2s;
+    }
+    #bool-actions button:hover {
+      background: lime;
+      color: black;
+      border-color: #1a7a2e;
+    }
+    #bool-operator-menu {
+      position: absolute;
+      left:25px;
+      right:25px;
+      border-top-width:0px;
+      margin-top:-22px;
+      transition:all .3s;
+      opacity: 0;
+      user-select:none;
+      pointer-events: none;
+      background: black;
+      border: 1px solid lime;
+      border-radius: 8px;
+      padding: 4px 0;
+      z-index: 5000;
+      text-align: right;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      height:0px;
+    }
+    #bool-operator-menu .menu-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 13px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    #bool-operator-menu .menu-item:hover {
+      background: #1a7a2e;
+      color: white;
+    }
+    .date-range-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffc107;
+      font-family: monospace;
+      font-size: 14px;
+      width: 130px;
+      padding: 2px 4px;
+    }
+    .date-range-input::placeholder {
+      color: #777;
+    }
+
+    #search-bar-top {
+      display: none; /* Hidden - replaced by boolean search area */
+    }
+    #search-buttons {
+      display: none;
+      margin-top: 8px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #search-buttons button {
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      font-size: 24px;
+      color: white;
+      padding: 4px 8px;
+      user-select: none;
+      transition: color 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      min-height: 32px;
+      border-radius: 4px;
+    }
+    #search-buttons button:hover {
+      color: #66d366;
+    }
+    #search-x {
+      color: red;
+      font-weight: 900;
+    }
+    #search-check {
+      color: #00ff00;
+      font-weight: 900;
+    }
+    /* Container for conversation tabs and buttons */
+    #sidebar-content {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 20px 10px;
+      padding-left:0;
+      width: 98%;
+    }
+    #sidebar h2 {
+      color: #ffffff;
+      text-shadow: -3px 3px rgb(4, 52, 77);
+      letter-spacing: 0px;
+      font-size: 15px;
+      font-weight:400;
+      text-align:center;
+      background: linear-gradient(black 70%,transparent);
+      margin-top:-60px;
+      padding-top:60px;
+      text-transform: lowercase;
+      opacity: 0;
+    }
+    .conversation-tab {
+      cursor: pointer;
+      text-align:end;
+      padding: 8px 50px 8px 8px;
+      margin-bottom: 12px;
+      color: white;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.4);;
+      margin-left: -50px;
+      border: 2px solid rgb(148, 148, 148);
+      transition: all .12s ease;
+      box-shadow: 0 0 2px black;
+      margin-right: 40px;
+      position: relative;
+    }
+    .conversation-tab:hover {
+      font-weight: 800;
+      border-color: rgb(255, 255, 255);
+      background: darkgreen;
+      color: gold;
+      box-shadow: inset 0 0 20px rgb(0, 0, 0);
+    }
+    .conversation-tab.selected {
+      background: linear-gradient(to left, darkgreen, black);
+      font-weight: bold;
+      transform: scale(1.051);
+      color: gold;
+      box-shadow: inset 0 0 20px rgb(0, 0, 0), 0 0 20px goldenrod;
+      border: 3px groove gold;
+      margin-left: 10px;
+    }
+      .conversation-tab.search-result {
+        background:rgb(89, 53, 94);
+        color:rgb(190, 180, 180);
+      }
+     .conversation-tab.search-result:hover {
+      background:rgb(59, 0, 58);
+      color:yellow;
+      }
+
+    /* Drawer open button on each tab */
+    .tab-drawer-btn {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: rgba(255,255,255,0.6);
+      font-size: 14px;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      z-index: 2;
+      padding: 0;
+    }
+    .tab-drawer-btn:hover {
+      background: rgba(35, 232, 38, 0.3);
+      border-color: #23e826;
+      color: #23e826;
+    }
+    .conversation-tab.selected .tab-drawer-btn {
+      right: 10px;
+    }
+
+    #main {
+      flex: 1;
+      padding-left: 20px;
+      padding-right: 20px;
+      max-width:80vw;
+      overflow: hidden auto;
+      position: relative;
+    }
+    .message {
+      margin-bottom: 1em;
+      padding: 20px;
+      border-radius: 10px;
+      font-size: large;
+      position: relative;
+    }
+    .message.user {
+      background: #27456c87;
+      padding-right: 50px;
+      margin-right: -50px;
+      border-left: 4px solid #2196f3;
+      font-size: x-large;
+      color: white;
+      border-top: 2px solid #2196f3;
+      border-bottom: 1px solid #2196f3;
+    }
+    .message.assistant {
+      background: #000000bc;
+      color:#6cfb97bc;
+      margin-left: -10px;
+      font-family:'Poiret One';
+      font-size: x-large;
+      border-left: 4px solid #4caf50;
+      border-radius: 10px 10px 40px;
+      border-bottom: 1px solid #4caf50;
+      width: 85%;
+      border-right: .5px solid darkgreen;
+    }
+    .highlight {
+      background-color: yellow;
+      color: black;
+    }
+    ah1 {
+      color: rgba(255,255,255,.6);
+      text-shadow: -3px 3px rgb(4, 52, 77);
+      font-size: 65px;
+      text-align: center;
+      width: 100%;
+      padding-top: 32px;
+      display: flex;
+      font-weight:400;
+    }
+
+
+
+    #main-image {
+    top:49vh;
+    z-index:1000;
+    opacity:1;
+    background:transparent;
+    position:absolute;
+left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent); 
+   height:40px;
+    transition:all .5s ease !important;
+      width:40px;
+      transition:all 0.3s;
+    }
+
+
+
+    #main-image:hover {
+  filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px rgb(0,0,0)) !important;
+  transform:scale(3)rotate(0deg) !important;
+}
+
+#main-image:active {
+    transition:all 1.5s ease !important;
+  transform:scale(.9)rotate(360deg) !important;
+
+}
+    body {
+      animation:fade 1s 1 ease-in;
+    }
+
+@keyframes fade {
+  0% { filter:brightness(.001)hue-rotate(1000deg);}
+  100% { filter:brightness(1)hue-rotate(0deg);};
+}
+
+    @keyframes laterman {
+    0% {transform:scale(30)rotate(0deg);opacity:.5;}
+    70% {transform: scale(1)rotate(1430deg)}
+    90%{transform:scale(.6)rotate(715deg)}
+    }
+
+
+    #conversation-title {
+      text-wrap-mode: wrap;
+      transition:all .5s ease;
+      font-weight:10;
+      mix-blend-mode:lighten;
+      color:transparent;
+      width:100%;
+      text-align:center;
+      justify-content: center;      font-family: 'Poiret One';
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.622);
+      text-transform: lowercase;
+      text-decoration: underline 11px dotted teal;
+      display: flex;
+      font-size:30px !important;
+    }
+
+    @keyframes revealo {
+      0% {letter-spacing:-2.1rem;opacity:0;}
+      100% {letter-spacing:normal;}}
+
+#search-buttons #export-results{
+    font-size:1.5rem;
+    color:black;
+    -webkit-text-stroke:1px green;
+    background:transparent;
+filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
+
+    /* New styles for historybot */
+    #historybot {
+      background: rgba(176,255,226,.15);
+      position: fixed;
+      bottom: 10vh;
+      right: 10vw;
+      width: 60vw;
+      height: 50vw;
+      border: 1px solid #000000;
+      border-radius: 40px;
+      box-shadow: 0 0 2px blue, 0 0 10px skyblue, 0 0 4px white;
+      color: #0f0;
+      font-family: monospace;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform:rotateX(-20deg);
+      backdrop-filter: blur(10px);
+    }
+    #historybot-output {
+      flex: 10;
+      background-color: rgba(0,0,0,.45);
+      overflow-y: auto;
+      border: 2px solid rgba(0,255,0,.43);
+      font-size: 14px;
+      border-radius: 20px 20px 0 0;
+      margin-bottom: -10px;
+    }
+    #historybot-inputs {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      padding: 10px;
+      align-items: center;
+      justify-self: center;
+      box-sizing: border-box;
+    }
+    #historybot-inputs input[type="text"] {
+      background-color: #182b3d;
+      border: 1px solid red;
+      border-radius: 8px 8px 8px 28px;
+      color: #0f0;
+      padding: 5px 10px;
+      width: auto;
+      height: 50px;
+      flex: 1;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    #historybot-inputs #extra-input {
+      border-radius: 8px 8px 28px;
+    }
+
+    /* === Slideout Drawer Styles === */
+    .slideout-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 35vw;
+      resize: both;
+      min-width: 340px;
+      max-width: 80vw;
+      height: 90vh;
+      background: rgba(5, 15, 25, 0.92);
+      backdrop-filter: blur(16px);
+      border-left: 2px solid rgba(35, 232, 38, 0.3);
+      box-shadow: -8px 0 30px rgba(0, 0, 0, 0.7), -2px 0 8px rgba(35, 104, 255, 0.15);
+      z-index: 3000;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+      overflow: hidden;
+      border-radius:20px;
+    }
+    .slideout-drawer.open {
+      transform: translateX(0);
+    }
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: rgba(0, 0, 0, 0.5);
+      border-bottom: 1px solid rgba(35, 232, 38, 0.2);
+      flex-shrink: 0;
+      cursor: move;
+      user-select: none;
+    }
+    .drawer-title {
+      font-size: 18px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.7);
+      text-transform: lowercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      margin-right: 12px;
+    }
+    .drawer-close-btn {
+      background: rgba(255, 60, 60, 0.15);
+      border: 1px solid rgba(255, 60, 60, 0.4);
+      color: #ff4444;
+      font-size: 18px;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .drawer-close-btn:hover {
+      background: rgba(255, 60, 60, 0.35);
+      border-color: #ff4444;
+    }
+    .drawer-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .drawer-content .message {
+      margin-bottom: 1em;
+      padding: 16px;
+      border-radius: 10px;
+      font-size: large;
+      position: relative;
+    }
+    .drawer-content .message.user {
+      background: #27456c87;
+      border-left: 4px solid #2196f3;
+      font-size: x-large;
+      color: white;
+      border-top: 2px solid #2196f3;
+      border-bottom: 1px solid #2196f3;
+    }
+    .drawer-content .message.assistant {
+      background: #000000bc;
+      color:#6cfb97bc;
+      font-family:'Poiret One';
+      font-size: x-large;
+      border-left: 4px solid #4caf50;
+      border-radius: 10px 10px 40px;
+      border-bottom: 1px solid #4caf50;
+      border-right: .5px solid darkgreen;
+    }
+    /* Resize handle on left edge of drawer */
+    .drawer-resize-handle {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 10;
+      background: transparent;
+      transition: background 0.2s;
+    }
+    .drawer-resize-handle:hover,
+    .drawer-resize-handle.active {
+      background: rgba(35, 232, 38, 0.3);
+    }
+
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <div id="search-container">
+      <!-- Hidden original search bar, kept for compatibility -->
+      <input type="text" id="search-bar-top" placeholder="Search" autocomplete="off" style="display:none;" />
+
+      <!-- Boolean search area -->
+      <div id="boolean-search-area">
+        <input type="text" class="bool-search-input" id="bool-input-0" placeholder="Select a Conversation" autocomplete="off" data-index="0" />
+                </div>
+
+        <div id="bool-actions">
+          <button id="bool-add-btn" title="Add boolean term">+</button>
+          <button id="bool-menu-btn" title="Choose operator">...</button>
+      </div>
+      <div id="bool-operator-menu">
+        <div class="menu-item" data-op="AND">AND</div>
+        <div class="menu-item" data-op="OR">OR</div>
+        <div class="menu-item" data-op="WITHOUT">WITHOUT</div>
+        <div class="menu-item" data-op="DATE_RANGE">DATE RANGE...</div>
+      </div>
+
+      <div id="progress-container" style="display: none;">
+        <div id="progress-bar-bg" style="width: 100%; height: 4px; background-color: #333; border-radius: 2px; margin-top: 8px;">
+          <div id="progress-bar-fill" style="height: 100%; background-color: #66d366; border-radius: 2px; width: 0%; transition: width 0.3s ease;"></div>
+        </div>
+        <div id="progress-text" style="font-size: 12px; color: #ccc; margin-top: 4px; text-align: center;">Processing...</div>
+      </div>
+      <div id="search-buttons" aria-label="Search navigation buttons">
+        <button id="search-x" title="Clear search" aria-label="Clear search">&#10060;</button>
+        <button id="search-left" title="Previous match" aria-label="Previous match">&#8592;</button>
+        <span id="search-counter" style="color: white; margin: 0 8px; font-size: 18px;">0/0</span>
+        <button id="search-right" title="Next match" aria-label="Next match">&#8594;</button>
+        <button id="search-check" title="Go to current match" aria-label="Go to current match">&#10004;</button>
+        <button id="export-results" title="Export search results to markdown" aria-label="Export search results">&#x23EC;&#xFE0F;&#x279C;</button>
+      </div>
+    </div>
+    <div id="sidebar-content">
+      <div id="conversationList"></div>
+    </div>
+  </div>
+    <img id="main-image" src="resource/chimein.png" />
+
+  <div id="main">
+    <ah1 id="conversation-title">Conversation:</ah1>
+    <div id="conversationView"></div>
+  </div>
+
+  <div id="historybot" style="display:none">
+    <div id="historybot-output"></div>
+    <div id="historybot-inputs">
+      <input type="text" id="topic-input" placeholder="Enter topic here" />
+      <input type="text" id="extra-input" placeholder="Enter extra directions here" />
+    </div>
+  </div>
+
+  <!-- Drawer container for slideout panels -->
+  <div id="drawer-container"></div>
+
+  <script>
+  // Format unix timestamp to local string
+  function formatTimestamp(unixTimestamp) {
+    if (!unixTimestamp) return '';
+    return new Date(unixTimestamp * 1000).toLocaleString();
+  }
+
+ // Global state variables
+ let conversations = [];  // All conversations metadata loaded initially
+    let searchResults = [];  // Array of { file, conversation, matches: [{messageIndex, indices}], fullData }
+    let currentSearchTerm = '';
+    let currentMatchGlobalIndex = -1; // Index in flatMatches for navigation
+    let flatMatches = []; // Flattened list of { fileIndex, messageIndex, indices } for navigation
+    let currentConversationIndex = -1; // Which conversation from searchResults is opened
+    let currentSearchSessionId = null; // Track current search session
+    let progressInterval = null; // Interval for progress polling
+    const conversationListElem = document.getElementById('conversationList');
+    const conversationViewElem = document.getElementById('conversationView');
+    const searchBarTop = document.getElementById('search-bar-top');
+    const searchButtons = document.getElementById('search-buttons');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    const progressText = document.getElementById('progress-text');
+    const btnX = document.getElementById('search-x');
+    const btnLeft = document.getElementById('search-left');
+    const btnRight = document.getElementById('search-right');
+    const btnCheck = document.getElementById('search-check');
+    const btnExport = document.getElementById('export-results');
+    const mainImage = document.getElementById('main-image');
+
+    // ==============================
+    // BOOLEAN SEARCH STATE & LOGIC
+    // ==============================
+    const boolSearchArea = document.getElementById('boolean-search-area');
+    const boolActions = document.getElementById('bool-actions');
+    const boolAddBtn = document.getElementById('bool-add-btn');
+    const boolMenuBtn = document.getElementById('bool-menu-btn');
+    const boolOperatorMenu = document.getElementById('bool-operator-menu');
+
+    // Boolean search model: array of segments
+    // Each segment is { type: 'input'|'pill', operator: 'AND'|'OR'|'WITHOUT'|'DATE_RANGE', id: unique }
+    let boolSegments = [{ type: 'input', id: 'bool-input-0' }];
+    let lastOperator = 'AND';
+    let orCount = 0; // Track OR operators (max 2)
+    let nextSegmentId = 1;
+
+    // Show/hide the +/... buttons based on whether any input has text
+    function updateBoolActions() {
+      const inputs = boolSearchArea.querySelectorAll('.bool-search-input');
+      let hasText = false;
+      inputs.forEach(inp => { if (inp.value.trim()) hasText = true; });
+      boolActions.style.display = hasText ? 'flex' : 'none';
+    }
+
+    // Rebuild the boolean search area DOM from boolSegments
+    function renderBoolSearchArea() {
+      // Save current input values
+      const savedValues = {};
+      boolSearchArea.querySelectorAll('.bool-search-input, .date-range-input').forEach(inp => {
+        savedValues[inp.dataset.segId || inp.id] = inp.value;
+      });
+
+      boolSearchArea.innerHTML = '';
+      const totalInputs = boolSegments.filter(s => s.type === 'input').length;
+
+      boolSegments.forEach((seg, idx) => {
+        if (seg.type === 'input') {
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.className = 'bool-search-input';
+          inp.id = seg.id;
+          inp.dataset.segId = seg.id;
+          inp.autocomplete = 'off';
+          if (idx === 0 && boolSegments.length === 1) {
+            inp.placeholder = 'Select a Conversation';
+          } else {
+            inp.placeholder = 'Search...';
+          }
+          // Truncate earlier inputs if there are many segments
+          if (totalInputs > 2 && idx < boolSegments.length - 2) {
+            inp.classList.add('truncated');
+          }
+          // Restore saved value
+          if (savedValues[seg.id] !== undefined) {
+            inp.value = savedValues[seg.id];
+          }
+          inp.addEventListener('input', updateBoolActions);
+          inp.addEventListener('keydown', handleBoolSearchKeydown);
+          boolSearchArea.appendChild(inp);
+        } else if (seg.type === 'pill') {
+          if (seg.operator === 'DATE_RANGE') {
+            // Render as TIME: [date input]
+            const pill = document.createElement('span');
+            pill.className = 'bool-pill date-range';
+            pill.innerHTML = 'TIME:';
+            const dateInp = document.createElement('input');
+            dateInp.type = 'text';
+            dateInp.className = 'date-range-input';
+            dateInp.placeholder = '01/01/24 - 12/31/25';
+            dateInp.dataset.segId = seg.id;
+            if (savedValues[seg.id] !== undefined) {
+              dateInp.value = savedValues[seg.id];
+            }
+            dateInp.addEventListener('keydown', handleBoolSearchKeydown);
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'pill-remove';
+            removeBtn.textContent = 'x';
+            removeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              removeBoolSegment(seg.id);
+            });
+            pill.appendChild(dateInp);
+            pill.appendChild(removeBtn);
+            boolSearchArea.appendChild(pill);
+          } else {
+            const pill = document.createElement('span');
+            pill.className = 'bool-pill';
+            if (seg.operator === 'WITHOUT') pill.classList.add('without');
+            if (seg.operator === 'OR') pill.classList.add('or');
+            pill.textContent = seg.operator;
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'pill-remove';
+            removeBtn.textContent = 'x';
+            removeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              removeBoolSegment(seg.id);
+            });
+            pill.appendChild(removeBtn);
+            boolSearchArea.appendChild(pill);
+          }
+        }
+      });
+      // Focus last input
+      const lastInput = boolSearchArea.querySelector('.bool-search-input:last-of-type, .date-range-input:last-of-type');
+      if (lastInput) lastInput.focus();
+    }
+
+    // Add a boolean segment (pill + input after it)
+    function addBoolSegment(operator) {
+      if (operator === 'OR') {
+        if (orCount >= 2) return; // Max 2 OR operators
+        orCount++;
+      }
+      const pillId = 'bool-pill-' + nextSegmentId++;
+      const inputId = 'bool-input-' + nextSegmentId++;
+
+      if (operator === 'DATE_RANGE') {
+        // DATE_RANGE: just add the date pill, no extra input
+        boolSegments.push({ type: 'pill', operator: 'DATE_RANGE', id: pillId });
+      } else {
+        boolSegments.push({ type: 'pill', operator, id: pillId });
+        boolSegments.push({ type: 'input', id: inputId });
+      }
+
+      lastOperator = operator;
+      renderBoolSearchArea();
+    }
+
+    // Remove a segment (pill) and its following input
+    function removeBoolSegment(segId) {
+      const idx = boolSegments.findIndex(s => s.id === segId);
+      if (idx === -1) return;
+      const seg = boolSegments[idx];
+      if (seg.operator === 'OR') orCount = Math.max(0, orCount - 1);
+
+      if (seg.operator === 'DATE_RANGE') {
+        // Just remove the date pill
+        boolSegments.splice(idx, 1);
+      } else {
+        // Remove pill and the input after it
+        const removeCount = (idx + 1 < boolSegments.length && boolSegments[idx + 1].type === 'input') ? 2 : 1;
+        boolSegments.splice(idx, removeCount);
+      }
+
+      // Ensure at least one input remains
+      if (!boolSegments.some(s => s.type === 'input')) {
+        boolSegments = [{ type: 'input', id: 'bool-input-0' }];
+      }
+
+      renderBoolSearchArea();
+    }
+
+    // Handle Enter key in boolean search inputs
+    function handleBoolSearchKeydown(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        executeBooleanSearch();
+      }
+    }
+
+    // Build the search payload from boolean segments
+    function buildBooleanSearchPayload() {
+      // Collect all segments into groups separated by OR
+      const groups = [[]];
+      let dateRange = null;
+
+      for (let i = 0; i < boolSegments.length; i++) {
+        const seg = boolSegments[i];
+        if (seg.type === 'pill' && seg.operator === 'OR') {
+          groups.push([]); // Start a new OR group
+        } else if (seg.type === 'pill' && seg.operator === 'DATE_RANGE') {
+          // Get date value from the date input
+          const dateInp = boolSearchArea.querySelector(`[data-seg-id="${seg.id}"]`);
+          if (dateInp && dateInp.value.trim()) {
+            const parts = dateInp.value.trim().split('-').map(s => s.trim());
+            if (parts.length === 2) {
+              dateRange = { start: normalizeDateStr(parts[0]), end: normalizeDateStr(parts[1]) };
+            }
+          }
+        } else if (seg.type === 'input') {
+          const inp = document.getElementById(seg.id);
+          if (inp && inp.value.trim()) {
+            // Determine the operator from the pill before this input
+            let operator = 'AND';
+            if (i > 0 && boolSegments[i - 1].type === 'pill') {
+              operator = boolSegments[i - 1].operator;
+            }
+            groups[groups.length - 1].push({ value: inp.value.trim(), operator });
+          }
+        }
+      }
+
+      // Build searches array
+      const searches = groups
+        .filter(g => g.length > 0)
+        .map(g => ({
+          terms: g.map(t => {
+            if (t.operator === 'WITHOUT') {
+              return { value: '', operator: 'WITHOUT', exclude: t.value };
+            }
+            return { value: t.value, operator: t.operator };
+          })
+        }));
+
+      return { searches, dateRange };
+    }
+
+    // Normalize date string: if missing leading digit, prepend 0
+    function normalizeDateStr(str) {
+      // Handle formats like 1/1/24 -> 01/01/24
+      const parts = str.split('/');
+      if (parts.length !== 3) return str;
+      return parts.map((p, i) => {
+        if (i < 2 && p.length === 1) return '0' + p;
+        return p;
+      }).join('/');
+    }
+
+    // Execute boolean search
+    async function executeBooleanSearch() {
+      const payload = buildBooleanSearchPayload();
+
+      // Check if it's a simple single-term search (backward compat path)
+      const isSimple = payload.searches.length === 1 &&
+                       payload.searches[0].terms.length === 1 &&
+                       payload.searches[0].terms[0].operator === 'AND' &&
+                       !payload.dateRange;
+
+      if (isSimple) {
+        const term = payload.searches[0].terms[0].value.toLowerCase();
+        if (!term) {
+          clearSearch();
+          return;
+        }
+        currentSearchTerm = term;
+        searchBarTop.value = term; // Keep hidden input in sync
+        await performSearch(term);
+      } else {
+        // Boolean search
+        if (payload.searches.length === 0 && !payload.dateRange) {
+          clearSearch();
+          return;
+        }
+        // Set currentSearchTerm for display/export
+        const allTerms = payload.searches.flatMap(s => s.terms.map(t => t.value || t.exclude || '')).filter(Boolean);
+        currentSearchTerm = allTerms.join(' ');
+        await performBooleanSearch(payload);
+      }
+    }
+
+    // Boolean search with complex payload
+    async function performBooleanSearch(payload) {
+      searchResults = [];
+      flatMatches = [];
+      currentMatchGlobalIndex = -1;
+      currentConversationIndex = -1;
+
+      progressContainer.style.display = 'block';
+      progressBarFill.style.width = '0%';
+      progressText.textContent = 'Initializing search...';
+      searchButtons.style.display = 'flex';
+
+      currentSearchSessionId = Date.now().toString();
+
+      progressInterval = setInterval(() => {
+        pollSearchProgress(currentSearchSessionId);
+      }, 200);
+
+      try {
+        const resp = await fetch('/search-json-files', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            searches: payload.searches,
+            dateRange: payload.dateRange,
+            sessionId: currentSearchSessionId
+          })
+        });
+        const response = await resp.json();
+        const serverResults = response.results;
+
+        if (progressInterval) {
+          clearInterval(progressInterval);
+          progressInterval = null;
+        }
+        progressContainer.style.display = 'none';
+
+        if (!Array.isArray(serverResults) || serverResults.length === 0) {
+          conversationListElem.innerHTML = '<i>No conversations found.</i>';
+          conversationViewElem.innerHTML = '<p>No matches found.</p>';
+          return;
+        }
+
+        // Collect all AND terms for client-side highlighting
+        const andTerms = payload.searches
+          .flatMap(s => s.terms)
+          .filter(t => t.operator === 'AND' && t.value)
+          .map(t => t.value.toLowerCase());
+
+        for (const result of serverResults) {
+          try {
+            const convData = await (await fetch('/' + result.file)).json();
+            let convArray = Array.isArray(convData) ? convData : [convData];
+
+            convArray.forEach((conv) => {
+              const messages = getMessagesInOrder(conv.mapping);
+              const matches = [];
+              messages.forEach((msg, msgIndex) => {
+                if (!msg.message?.content?.parts?.length) return;
+                const matchedIndices = [];
+                msg.message.content.parts.forEach((part, partIndex) => {
+                  if (typeof part !== 'string') return;
+                  const lowerPart = part.toLowerCase();
+                  for (const term of andTerms) {
+                    let startPos = 0;
+                    while (true) {
+                      const foundAt = lowerPart.indexOf(term, startPos);
+                      if (foundAt === -1) break;
+                      matchedIndices.push({ partIndex, startPos: foundAt, length: term.length });
+                      startPos = foundAt + term.length;
+                    }
+                  }
+                });
+                if (matchedIndices.length > 0) {
+                  matches.push({ messageIndex: msgIndex, indices: matchedIndices });
+                }
+              });
+              if (matches.length > 0) {
+                searchResults.push({
+                  file: result.file,
+                  title: conv.title || result.file,
+                  conversation: conv,
+                  matches,
+                  fullData: conv,
+                  create_time: conv.create_time || null,
+                });
+              }
+            });
+          } catch (e) {
+            console.error('Error fetching conversation data:', result.file, e);
+          }
+        }
+
+        if (searchResults.length === 0) {
+          conversationListElem.innerHTML = '<i>No conversations found.</i>';
+          conversationViewElem.innerHTML = '<p>No matches found.</p>';
+          return;
+        }
+
+        searchResults.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
+
+        flatMatches = [];
+        searchResults.forEach((result, fileIndex) => {
+          result.matches.forEach(matchObj => {
+            flatMatches.push({
+              fileIndex,
+              messageIndex: matchObj.messageIndex,
+              indices: matchObj.indices,
+            });
+          });
+        });
+
+        renderConversationTabs(searchResults, true);
+        selectConversationByIndex(0, 0);
+
+      } catch (e) {
+        console.error('Boolean search error', e);
+        if (progressInterval) {
+          clearInterval(progressInterval);
+          progressInterval = null;
+        }
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    // + button: add operator pill
+    boolAddBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      addBoolSegment(lastOperator);
+    });
+
+    // ... button: show operator menu
+    boolMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const rect = boolMenuBtn.getBoundingClientRect();
+      if (boolOperatorMenu.style.opacity === '0') {
+      boolOperatorMenu.style.top = (rect.bottom + 2) + 'px';
+        boolOperatorMenu.style.height = '160px';
+        boolOperatorMenu.style.opacity='1';
+        boolOperatorMenu.style.pointerEvents='all';
+        boolOperatorMenu.style.userSelect='all';
+      } else {
+              boolOperatorMenu.style.height = '0px;';
+      boolOperatorMenu.style.opacity='0';
+      boolOperatorMenu.style.pointerEvents='none';
+      boolOperatorMenu.style.userSelect='none';
+      }
+    });
+
+    // Menu item clicks
+    document.querySelectorAll('#bool-operator-menu .menu-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const op = item.dataset.op;
+        addBoolSegment(op);
+      });
+    });
+
+    // Close menu on outside click
+    document.addEventListener('click', () => {
+      boolOperatorMenu.style.height = '0px;';
+      boolOperatorMenu.style.opacity='0';
+      boolOperatorMenu.style.pointerEvents='none';
+      boolOperatorMenu.style.userSelect='none';
+    });
+
+    // Listen for input on all boolean inputs
+    boolSearchArea.addEventListener('input', updateBoolActions);
+
+    // ==============================
+    // SLIDEOUT DRAWER SYSTEM
+    // ==============================
+    const drawerContainer = document.getElementById('drawer-container');
+    let openDrawers = []; // Array of { id, element }
+    let drawerIdCounter = 0;
+
+    function openDrawer(convData, title) {
+      const drawerId = 'drawer-' + (drawerIdCounter++);
+      const drawerIndex = openDrawers.length;
+
+      const drawer = document.createElement('div');
+      drawer.className = 'slideout-drawer';
+      drawer.id = drawerId;
+      // Offset each stacked drawer slightly to the left
+      const offsetRight = drawerIndex * 90;
+      const offsetTop = drawerIndex * 90;
+      drawer.style.top = offsetTop + 'px';
+      drawer.style.right = offsetRight + 'px';
+
+      // Resize handle
+      const resizeHandle = document.createElement('div');
+      resizeHandle.className = 'drawer-resize-handle';
+      drawer.appendChild(resizeHandle);
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'drawer-header';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'drawer-title';
+      titleEl.textContent = title || 'Conversation';
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'drawer-close-btn';
+      closeBtn.innerHTML = '&#x2715;';
+      closeBtn.title = 'Close drawer';
+      closeBtn.addEventListener('click', () => closeDrawer(drawerId));
+
+      header.appendChild(titleEl);
+      header.appendChild(closeBtn);
+      drawer.appendChild(header);
+
+      // Content
+      const content = document.createElement('div');
+      content.className = 'drawer-content';
+      renderDrawerContent(content, convData);
+      drawer.appendChild(content);
+
+      drawerContainer.appendChild(drawer);
+      openDrawers.push({ id: drawerId, element: drawer });
+
+      // Trigger slide-in animation
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          drawer.classList.add('open');
+        });
+      });
+
+      // Setup resize dragging
+      setupDrawerResize(drawer, resizeHandle);
+      setupDrawerDrag(drawer, header);
+    }
+
+    function renderDrawerContent(container, convData) {
+      const messages = getMessagesInOrder(convData.mapping);
+      messages.forEach((msg, msgIndex) => {
+        if (!msg.message || !msg.message.author || !msg.message.content?.parts?.length) return;
+        const div = document.createElement('div');
+        div.className = `message ${msg.message.author.role}`;
+        const timestamp = formatTimestamp(msg.message.create_time);
+        const content = msg.message.content.parts.map(part => parseMarkdown(part)).join('<br>');
+        div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>${content}`;
+        container.appendChild(div);
+      });
+    }
+    
+    
+    document.addEventListener('click', (e) => {
+  let clickedDrawer = null;
+
+  openDrawers.forEach(d => {
+    if (d.element.contains(e.target)) {
+      clickedDrawer = d;
+    }
+  });
+
+  openDrawers.forEach(d => {
+    d.element.style.zIndex = (d === clickedDrawer) ? 10000 : 0;
+        d.element.style.boxShadow = (d === clickedDrawer) ? 'rgba(100, 100, 255, 0.85) 0px 0px 50px, inset 0 0 200px lime' : 'none';
+    d.element.style.background = (d === clickedDrawer) ? 'white' : 'transparent';
+      
+  });
+});
+
+    function closeDrawer(drawerId) {
+      const idx = openDrawers.findIndex(d => d.id === drawerId);
+      if (idx === -1) return;
+      const drawer = openDrawers[idx].element;
+      drawer.classList.remove('open');
+      // Remove after transition
+      setTimeout(() => {
+        drawer.remove();
+      }, 360);
+      openDrawers.splice(idx, 1);
+    }
+
+    function setupDrawerResize(drawer, handle) {
+      let isResizing = false;
+      let startX = 0;
+      let startWidth = 0;
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isResizing = true;
+        startX = e.clientX;
+        startWidth = drawer.offsetWidth;
+        handle.classList.add('active');
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const delta = startX - e.clientX;
+        const newWidth = Math.max(340, Math.min(window.innerWidth * 0.85, startWidth + delta));
+        drawer.style.width = newWidth + 'px';
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (!isResizing) return;
+        isResizing = false;
+        handle.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+    }
+
+    function setupDrawerDrag(drawer, header) {
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let startRight = 0;
+      let startTop = 0;
+
+      header.addEventListener('mousedown', (e) => {
+        if (e.button !== 0 || e.target.closest('.drawer-close-btn')) return;
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = drawer.getBoundingClientRect();
+        startRight = window.innerWidth - rect.right;
+        startTop = rect.top;
+        document.body.style.cursor = 'move';
+        document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        drawer.style.right = (startRight - deltaX) + 'px';
+        drawer.style.top = (startTop + deltaY) + 'px';
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+    }
+
+    // ==============================
+    // SEARCH & NAVIGATION (original)
+    // ==============================
+
+    // Update search counter display
+    function updateSearchCounter() {
+      const counterElem = document.getElementById('search-counter');
+      if (!counterElem) return;
+      if (flatMatches.length > 0 && currentMatchGlobalIndex >= 0) {
+        counterElem.textContent = `${currentMatchGlobalIndex + 1}/${flatMatches.length}`;
+      } else {
+        counterElem.textContent = `0/0`;
+      }
+    }
+
+function setWindowFocusClass() {
+  mainImage.classList.add('window-focused');
+  mainImage.classList.remove('window-blur');
+  mainImage.style.animation = 'none';
+  mainImage.style.animation = 'laterman 2s linear forwards';
+}
+
+function removeWindowFocusClass() {
+  mainImage.classList.remove('window-focused');
+  mainImage.classList.add('window-blur');
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    setWindowFocusClass();
+  } else {
+    removeWindowFocusClass();
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  setWindowFocusClass();
+});
+
+// Toggle historybot visibility on main-image click
+mainImage.addEventListener('click', () => {
+
+  const historybot = document.getElementById('historybot');
+  if (historybot.style.display === 'flex') {
+    historybot.style.display = 'none';
+  } else {
+    historybot.style.display = 'flex';
+  }
+});
+
+  // Fetch conversation metadata (list of JSON files + load titles)
+  async function loadConversationsMetadata() {
+    try {
+      const files = await (await fetch('/list-json-files')).json();
+      const allConversations = [];
+
+      // Load all conversations from all files to get the 50 most recent
+      for (const file of files) {
+        try {
+          const data = await (await fetch(file)).json();
+          let convArray = Array.isArray(data) ? data : [data];
+
+          // Add each conversation from this file
+          convArray.forEach(conv => {
+            if (conv && typeof conv === 'object') {
+              allConversations.push({
+                file,
+                title: conv.title || file,
+                hasData: true,
+                create_time: conv.create_time || null,
+                conversation: conv // Store full conversation data for later use
+              });
+            }
+          });
+        } catch(e) {
+          console.error('Error loading conversation for metadata:', file, e);
+          // Add file as fallback if it can't be parsed
+          allConversations.push({
+            file,
+            title: file,
+            hasData: false,
+            create_time: null
+          });
+        }
+      }
+
+      // Sort by create_time (most recent first) and take top 50
+      allConversations.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
+      conversations = allConversations.slice(0, 50);
+
+      renderConversationTabs(conversations, false);
+    } catch (e) {
+      console.error('Error fetching list-json-files:', e);
+    }
+  }
+
+  // Render conversation tabs - input: array of {file, title}
+  function renderConversationTabs(convArray, isSearchResults = false) {
+    conversationListElem.innerHTML = '';
+    convArray.forEach((conv, index) => {
+      const tab = document.createElement('div');
+      tab.setAttribute('data-create-time', conv.create_time || '');
+
+      // Add search-result class if this is search results
+      if (isSearchResults) {
+        tab.className = 'conversation-tab search-result';
+      } else {
+        tab.className = 'conversation-tab';
+      }
+
+      if (index === currentConversationIndex) {
+        tab.classList.add('selected');
+      }
+      const formattedDate = conv.create_time ? formatTimestamp(conv.create_time).split(',')[0] : '';
+      const label = conv.title || `Conversation ${index + 1}`;
+      tab.innerHTML = `<div><strong>${label}</strong></div><div style="font-size: small; opacity: 0.7;">${formattedDate}</div>`;
+      tab.title = `Started: ${formattedDate}`;
+
+      // Main click: load in main area (existing behavior)
+      if (isSearchResults) {
+        tab.onclick = (e) => {
+          if (e.target.closest('.tab-drawer-btn')) return; // Don't trigger if drawer btn clicked
+          selectConversationByIndex(index);
+        };
+      } else {
+        tab.onclick = (e) => {
+          if (e.target.closest('.tab-drawer-btn')) return;
+          selectNormalConversationByIndex(index);
+        };
+      }
+
+      // Drawer button - small icon to open as slideout
+      const drawerBtn = document.createElement('button');
+      drawerBtn.className = 'tab-drawer-btn';
+      drawerBtn.title = 'Open in slideout drawer';
+      // SVG icon for slideout (panel right arrow)
+      drawerBtn.innerHTML = '&#x21F1;';
+      drawerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Get conversation data
+        if (isSearchResults) {
+          const convObj = searchResults[index];
+          if (convObj && convObj.conversation) {
+            openDrawer(convObj.conversation, convObj.title);
+          }
+        } else {
+          const convObj = conversations[index];
+          if (convObj && convObj.conversation) {
+            openDrawer(convObj.conversation, convObj.title);
+          } else {
+            // Need to fetch first
+            fetchConversationForDrawer(convObj.file, convObj.title);
+          }
+        }
+      });
+      tab.appendChild(drawerBtn);
+
+      conversationListElem.appendChild(tab);
+    });
+  }
+
+  // Fetch conversation and open in drawer
+  async function fetchConversationForDrawer(file, title) {
+    try {
+      const data = await (await fetch(file)).json();
+      let convArray = Array.isArray(data) ? data : [data];
+      if (convArray[0]) {
+        openDrawer(convArray[0], title || convArray[0].title || file);
+      }
+    } catch (e) {
+      console.error('Error fetching conversation for drawer:', file, e);
+    }
+  }
+
+  // Select conversation in normal (non-search) mode
+  function selectNormalConversationByIndex(index) {
+    if (index < 0 || index >= conversations.length) return;
+    currentConversationIndex = index;
+
+    // Highlight selected tab
+    const tabs = conversationListElem.querySelectorAll('.conversation-tab');
+    tabs.forEach((tab, i) => {
+      tab.classList.toggle('selected', i === index);
+    });
+
+    // Render conversation content without search highlighting
+    const conv = conversations[index];
+    if (conv.conversation) {
+      renderNormalConversationView(conv.conversation);
+    } else {
+      // Need to fetch the conversation data
+      fetchAndRenderNormalConversation(conv.file, index);
+    }
+  }
+
+  // Render conversation without search highlighting
+  function renderNormalConversationView(convo) {
+    conversationViewElem.innerHTML = '';
+    const messages = getMessagesInOrder(convo.mapping);
+
+    messages.forEach((msg, msgIndex) => {
+      if (!msg.message || !msg.message.author || !msg.message.content?.parts?.length) return;
+      const div = document.createElement('div');
+      div.className = `message ${msg.message.author.role}`;
+      div.dataset.msgIndex = msgIndex;
+      const timestamp = formatTimestamp(msg.message.create_time);
+
+      // Use markdown parsing for all content
+      const content = msg.message.content.parts.map(part => parseMarkdown(part)).join('<br>');
+      div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>${content}`;
+      conversationViewElem.appendChild(div);
+    });
+    document.getElementById('conversation-title').textContent = convo.title || 'Conversation:';
+  }
+
+  // Fetch conversation data and render it
+  async function fetchAndRenderNormalConversation(file, index) {
+    try {
+      const data = await (await fetch('/' + file)).json();
+      let convArray = Array.isArray(data) ? data : [data];
+
+      // Update the stored conversation data
+      if (conversations[index]) {
+        conversations[index].conversation = convArray[0];
+        renderNormalConversationView(convArray[0]);
+      }
+    } catch (e) {
+      console.error('Error fetching conversation:', file, e);
+      conversationViewElem.innerHTML = '<p>Error loading conversation.</p>';
+    }
+  }
+
+
+  // Helper: clear conversation viewer
+  function clearConversationView() {
+    conversationViewElem.innerHTML = '';
+    currentConversationIndex = -1;
+    currentMatchGlobalIndex = -1;
+    flatMatches = [];
+  }
+
+  // On Enter in the hidden search bar (kept for backward compat, but now boolean handles it)
+  searchBarTop.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const searchTerm = searchBarTop.value.trim().toLowerCase();
+      if (!searchTerm) {
+        clearSearch();
+        return;
+      }
+      currentSearchTerm = searchTerm;
+      await performSearch(searchTerm);
+    }
+  });
+
+  // Disable input filtering
+  searchBarTop.addEventListener('input', () => {
+    // Do nothing here to not filter live
+  });
+
+  // Function to poll search progress
+  async function pollSearchProgress(sessionId) {
+    try {
+      const resp = await fetch(`/search-progress/${sessionId}`);
+      const progress = await resp.json();
+
+      if (progress.error) {
+        console.error('Progress error:', progress.error);
+        return;
+      }
+
+      // Update progress bar
+      const percentage = (progress.processed / progress.total) * 100;
+      progressBarFill.style.width = `${percentage}%`;
+      progressText.textContent = `Processing ${progress.processed} of ${progress.total} files...`;
+
+      // If completed, stop polling
+      if (progress.completed) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+        progressContainer.style.display = 'none';
+      }
+    } catch (e) {
+      console.error('Error polling progress:', e);
+    }
+  }
+
+  // Perform search: post term to server, get back files with matches
+  async function performSearch(term) {
+    searchResults = [];
+    flatMatches = [];
+    currentMatchGlobalIndex = -1;
+    currentConversationIndex = -1;
+
+    // Show progress bar and search nav buttons
+    progressContainer.style.display = 'block';
+    progressBarFill.style.width = '0%';
+    progressText.textContent = 'Initializing search...';
+    searchButtons.style.display = 'flex';
+
+    // Generate session ID
+    currentSearchSessionId = Date.now().toString();
+
+    // Start polling progress
+    progressInterval = setInterval(() => {
+      pollSearchProgress(currentSearchSessionId);
+    }, 200); // Poll every 200ms
+
+    try {
+      const resp = await fetch('/search-json-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ searchTerm: term, sessionId: currentSearchSessionId })
+      });
+      const response = await resp.json();
+      const serverResults = response.results;
+
+      // Clear progress polling
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+      progressContainer.style.display = 'none';
+
+      if (!Array.isArray(serverResults) || serverResults.length === 0) {
+        // No matches found: clear sidebar and main view
+        conversationListElem.innerHTML = '<i>No conversations found containing "' + escapeHtml(term) + '"</i>';
+        conversationViewElem.innerHTML = '<p>No matches found.</p>';
+        return;
+      }
+
+      // For each matched file, fetch its full content to get conversations
+      for (const result of serverResults) {
+        try {
+          const convData = await (await fetch('/' + result.file)).json();
+          let convArray = Array.isArray(convData) ? convData : [convData];
+
+          // For each conversation in that file, find messages with matches
+          convArray.forEach((conv, convIndex) => {
+            const messages = getMessagesInOrder(conv.mapping);
+            // Search messages for matches of term
+            const matches = [];
+            messages.forEach((msg, msgIndex) => {
+              if (!msg.message?.content?.parts?.length) return;
+              const matchedIndices = [];
+              msg.message.content.parts.forEach((part, partIndex) => {
+                if (typeof part !== 'string') return;
+                const lowerPart = part.toLowerCase();
+                let startPos = 0;
+                while(true) {
+                  const foundAt = lowerPart.indexOf(term, startPos);
+                  if (foundAt === -1) break;
+                  matchedIndices.push({ partIndex, startPos: foundAt, length: term.length });
+                  startPos = foundAt + term.length;
+                }
+              });
+              if (matchedIndices.length > 0) {
+                matches.push({ messageIndex: msgIndex, indices: matchedIndices });
+              }
+            });
+            if (matches.length > 0) {
+              searchResults.push({
+                file: result.file,
+                title: conv.title || result.file,
+                conversation: conv,
+                matches,
+                fullData: conv,
+                create_time: conv.create_time || null,
+              });
+            }
+          });
+        } catch (e) {
+          console.error('Error fetching conversation data:', result.file, e);
+        }
+      }
+
+      if (searchResults.length === 0) {
+        conversationListElem.innerHTML = '<i>No conversations found containing "' + escapeHtml(term) + '"</i>';
+        conversationViewElem.innerHTML = '<p>No matches found.</p>';
+        return;
+      }
+
+      // Sort search results by create_time (most recent first)
+      searchResults.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
+
+      // Prepare flatMatches array from searchResults for navigation:
+      flatMatches = [];
+      searchResults.forEach((result, fileIndex) => {
+        result.matches.forEach(matchObj => {
+          flatMatches.push({
+            fileIndex,
+            messageIndex: matchObj.messageIndex,
+            indices: matchObj.indices,
+          });
+        });
+      });
+
+      // Render search results to completely replace conversation list
+      renderConversationTabs(searchResults, true);
+
+      // Auto-select 1st conversation and 1st match for display
+      selectConversationByIndex(0, 0);
+
+    } catch (e) {
+      console.error('Search error', e);
+      // Clear progress polling on error
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+      progressContainer.style.display = 'none';
+    }
+  }
+
+  // Escape HTML helper for safe insertion
+  function escapeHtml(text) {
+    return text.replace(/[&<>"]/g, c => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;'
+    })[c]);
+  }
+
+  // Simple markdown parser with safe code block handling
+  function parseMarkdown(text) {
+    if (!text || typeof text !== 'string') return '';
+
+    // First, escape HTML in the entire text
+    let result = escapeHtml(text);
+
+    // Handle code blocks (triple backticks) - must be done first
+    result = result.replace(/```([\s\S]*?)```/g, (match, code) => {
+      return `<pre style="background: #1a1a1a; color: #f0f0f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: 'Courier New', monospace; margin: 8px 0;"><code>${code}</code></pre>`;
+    });
+
+    // Handle inline code (single backticks)
+    result = result.replace(/`([^`]+)`/g, '<code style="background: #333; color: #f0f0f0; padding: 2px 4px; border-radius: 3px; font-family: \'Courier New\', monospace;">$1</code>');
+
+    // Handle bold text
+    result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // Handle italic text
+    result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // Handle headers
+    result = result.replace(/^### (.*$)/gm, '<h3 style="color: #fff; margin: 12px 0 8px 0;">$1</h3>');
+    result = result.replace(/^## (.*$)/gm, '<h2 style="color: #fff; margin: 12px 0 8px 0;">$1</h2>');
+    result = result.replace(/^# (.*$)/gm, '<h1 style="color: #fff; margin: 12px 0 8px 0;">$1</h1>');
+
+    // Handle line breaks (preserve them)
+    result = result.replace(/\n/g, '<br>');
+
+    return result;
+  }
+
+  // Navigate to conversation by index, optionally specify which match index to highlight
+  function selectConversationByIndex(index, specificMatchGlobalIndex = null) {
+    if (index < 0 || index >= searchResults.length) return;
+    currentConversationIndex = index;
+
+    // Highlight selected tab
+    const tabs = conversationListElem.querySelectorAll('.conversation-tab');
+    tabs.forEach((tab, i) => {
+      tab.classList.toggle('selected', i === index);
+    });
+
+    // Render conversation content with highlighted search matches
+    const convoObj = searchResults[index].conversation;
+    const matches = searchResults[index].matches;
+
+    renderConversationViewHighlighted(convoObj, matches);
+
+    // Update currentMatchGlobalIndex accordingly:
+    if (specificMatchGlobalIndex !== null) {
+      currentMatchGlobalIndex = specificMatchGlobalIndex;
+      scrollToCurrentMatch();
+    } else {
+      // Find first flatMatch for this conversation, if any
+      const firstMatchGlobalIndex = flatMatches.findIndex(fm => fm.fileIndex === index);
+      if (firstMatchGlobalIndex !== -1) {
+        currentMatchGlobalIndex = firstMatchGlobalIndex;
+        scrollToCurrentMatch();
+      } else {
+        currentMatchGlobalIndex = -1;
+      }
+    }
+  }
+
+
+  // Render conversation messages with highlighting of search matches for that conversation only
+  function renderConversationViewHighlighted(convo, matches) {
+    conversationViewElem.innerHTML = '';
+
+    // Build a Set of messageIndexes that contain a match for quick reference
+    const matchedMessageIndexSet = new Set(matches.map(m => m.messageIndex));
+    // Map from messageIndex to its matched indices array for highlighting
+    const matchMap = {};
+    matches.forEach(m => { matchMap[m.messageIndex] = m.indices; });
+
+    const messages = getMessagesInOrder(convo.mapping);
+    messages.forEach((msg, msgIndex) => {
+      if (!msg.message || !msg.message.author || !msg.message.content?.parts?.length) return;
+      const div = document.createElement('div');
+      div.className = `message ${msg.message.author.role}`;
+      div.dataset.msgIndex = msgIndex;
+      const timestamp = formatTimestamp(msg.message.create_time);
+
+      // If this message has matches, highlight matches in text parts
+      if (matchedMessageIndexSet.has(msgIndex)) {
+        // Construct inner HTML with highlighting of matched substrings
+        let htmlParts = [];
+        const indices = matchMap[msgIndex];
+
+        msg.message.content.parts.forEach((part, partIndex) => {
+          const partText = part;
+          if (typeof part !== 'string') return;
+          const lowerPart = part.toLowerCase();
+          // Find matches for this part
+          const partMatches = indices.filter(i => i.partIndex === partIndex);
+          if (partMatches.length === 0) {
+            // No match in this part - use markdown parsing
+            htmlParts.push(parseMarkdown(partText));
+          } else {
+            // Sort matches by startPos ascending
+            partMatches.sort((a,b) => a.startPos - b.startPos);
+            let lastIndex = 0;
+            let partHtml = '';
+            partMatches.forEach(({startPos, length}) => {
+              const before = parseMarkdown(partText.substring(lastIndex, startPos));
+              const matchText = escapeHtml(partText.substr(startPos, length));
+              partHtml += before + `<span class="highlight">${matchText}</span>`;
+              lastIndex = startPos + length;
+            });
+            partHtml += parseMarkdown(partText.substring(lastIndex));
+            htmlParts.push(partHtml);
+          }
+        });
+
+        div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>` + htmlParts.join('<br>');
+      } else {
+        // No highlight - use markdown parsing
+        const content = msg.message.content.parts.map(part => parseMarkdown(part)).join('<br>');
+        div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>${content}`;
+      }
+      conversationViewElem.appendChild(div);
+    });
+    document.getElementById('conversation-title').textContent = convo.title || 'Conversation:';
+  }
+
+  // Scroll conversation viewer to the current highlighted message/match
+  function scrollToCurrentMatch() {
+    if (currentMatchGlobalIndex < 0 || currentMatchGlobalIndex >= flatMatches.length) return;
+
+    console.log("scrollToCurrentMatch(): currentMatchGlobalIndex =", currentMatchGlobalIndex, "flatMatches =", flatMatches);
+
+    const { fileIndex, messageIndex } = flatMatches[currentMatchGlobalIndex];
+
+    // If displayed conversation differs from match's conversation, switch
+    if (fileIndex !== currentConversationIndex) {
+      selectConversationByIndex(fileIndex, currentMatchGlobalIndex);
+      return;
+    }
+    // Now scroll to the message div with attribute dataset.msgIndex=messageIndex
+    const messageDiv = conversationViewElem.querySelector(`.message[data-msg-index='${messageIndex}']`);
+    if (!messageDiv) {
+      console.warn("scrollToCurrentMatch(): messageDiv not found for messageIndex", messageIndex);
+      return;
+    }
+    // Manual scroll block - replaced with highlight focus if present
+    const scrollContainer = document.getElementById('main');
+    const containerRect = scrollContainer.getBoundingClientRect();
+    // Try to focus on the highlighted substring if present
+    const highlightEl = messageDiv.querySelector('.highlight') || messageDiv;
+    const targetRect = highlightEl.getBoundingClientRect();
+    // Use half the highlight height if focusing on a highlight, otherwise half the message height
+    const offset = (highlightEl !== messageDiv ? highlightEl.clientHeight : messageDiv.clientHeight) / 2;
+    const scrollTop = scrollContainer.scrollTop
+      + (targetRect.top - containerRect.top)
+      - (scrollContainer.clientHeight / 2)
+      + offset;
+    scrollContainer.scrollTo({ top: scrollTop, behavior: 'smooth' });
+    // Optional: visually emphasize current message (brief flash)
+    highlightCurrentMatch(messageDiv);
+    updateSearchCounter();
+  }
+
+  // Visual flash effect for current highlight message
+  function highlightCurrentMatch(element) {
+    element.style.transition = 'background-color 0.3s ease';
+    const originalBg = element.style.backgroundColor;
+    element.style.backgroundColor = 'orange';
+    setTimeout(() => {
+      element.style.backgroundColor = originalBg || '';
+    }, 600);
+  }
+
+  // Export search results to a Markdown file
+  function exportSearchResultsToMarkdown() {
+    let md = '';
+    searchResults.forEach((result) => {
+      md += `## ${result.title}\n\n`;
+      const messages = getMessagesInOrder(result.conversation.mapping);
+      result.matches.forEach(({ messageIndex }) => {
+        const msg = messages[messageIndex];
+        if (msg && msg.message && msg.message.content.parts) {
+          const text = msg.message.content.parts.join(' ');
+          md += `- ${text}\n\n`;
+        }
+      });
+    });
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `search-results-${currentSearchTerm || 'all'}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // Button event handlers
+  btnX.addEventListener('click', () => {
+    clearSearch();
+  });
+
+  btnLeft.addEventListener('click', () => {
+    if (flatMatches.length === 0) return;
+    currentMatchGlobalIndex--;
+    if (currentMatchGlobalIndex < 0) {
+      currentMatchGlobalIndex = flatMatches.length - 1;
+    }
+    scrollToCurrentMatch();
+  });
+
+  btnRight.addEventListener('click', () => {
+    if (flatMatches.length === 0) return;
+    currentMatchGlobalIndex++;
+    if (currentMatchGlobalIndex >= flatMatches.length) {
+      currentMatchGlobalIndex = 0;
+    }
+    scrollToCurrentMatch();
+  });
+
+  btnCheck.addEventListener('click', () => {
+    scrollToCurrentMatch();
+  });
+
+  btnExport.addEventListener('click', () => {
+    exportSearchResultsToMarkdown();
+  });
+
+  // Clear the search UI and show all conversations unfiltered
+  function clearSearch() {
+    currentSearchTerm = '';
+    searchBarTop.value = '';
+    searchButtons.style.display = 'none';
+
+    // Clear progress polling
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+    progressContainer.style.display = 'none';
+
+    searchResults = [];
+    flatMatches = [];
+    currentMatchGlobalIndex = -1;
+    currentConversationIndex = -1;
+    conversationViewElem.innerHTML = '';
+
+    // Reset boolean search UI
+    boolSegments = [{ type: 'input', id: 'bool-input-0' }];
+    orCount = 0;
+    renderBoolSearchArea();
+
+    renderConversationTabs(conversations, false);
+  }
+
+  // Extract messages in order (from your original function, fixed for robustness)
+  function getMessagesInOrder(mapping) {
+    if (!mapping) return [];
+    const result = [];
+    // find root(s) where parent == null or missing
+    const roots = Object.values(mapping).filter(node => node.parent === null || node.parent === undefined);
+    if (roots.length === 0) return [];
+
+    function traverse(node) {
+      if (!node) return;
+      if (node.message) result.push(node);
+      if (node.children?.length > 0) {
+        node.children.forEach(childId => traverse(mapping[childId]));
+      }
+    }
+
+    roots.forEach(traverse);
+
+    return result;
+  }
+
+  // === INITIAL LOAD ===
+  loadConversationsMetadata();
+
+  </script>
+</body>
+</html>

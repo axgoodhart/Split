@@ -1,0 +1,10 @@
+node_modules/
+firebase-debug.log
+.history/
+Split New Format/
+resource/conversations.json
+[0-9]*.json
+all-conversations.md
+
+*.mhtml
+.DS_Store
