@@ -4,19 +4,21 @@ const path = require('path');
 
 const app = express();
 app.use(express.static(__dirname));
-const jsonDirectory = __dirname; // Use the current directory (Split) as the base directory
+const jsonDirectory = path.join(__dirname, 'Split New Format');
+const jsonRoutePrefix = 'history';
 
 app.use(express.json());
 
 // Serve static files (e.g., index.html, CSS, JS) from the current directory
-app.use(express.static(jsonDirectory));
+app.use(express.static(__dirname));
+app.use(`/${jsonRoutePrefix}`, express.static(jsonDirectory));
 
 // Endpoint to list all JSON files
 app.get('/list-json-files', (req, res) => {
   fs.readdir(jsonDirectory, (err, files) => {
     if (err) return res.status(500).send('Error reading directory');
-    const jsonFiles = files.filter(file => file.endsWith('.json'));
-    res.json(jsonFiles.map(file => `/${file}`)); // Adjusted to serve files from the current directory
+    const jsonFiles = files.filter(file => /^conversations-\d+\.json$/.test(file)).sort();
+    res.json(jsonFiles.map(file => `${jsonRoutePrefix}/${file}`));
   });
 });
 
@@ -58,7 +60,7 @@ app.post('/search-json-files', (req, res) => {
   fs.readdir(jsonDirectory, (err, files) => {
     if (err) return res.status(500).send('Error reading directory');
 
-    const jsonFiles = files.filter(file => file.endsWith('.json'));
+    const jsonFiles = files.filter(file => /^conversations-\d+\.json$/.test(file)).sort();
     let filesProcessed = 0;
 
     // Initialize search session
@@ -91,13 +93,13 @@ app.post('/search-json-files', (req, res) => {
               // Boolean search mode
               const booleanMatches = searchJsonBoolean(jsonData, searches, dateRange);
               if (booleanMatches.length > 0) {
-                results.push({ file, matches: booleanMatches });
+                results.push({ file: `${jsonRoutePrefix}/${file}`, matches: booleanMatches });
               }
             } else {
               // Simple search mode (backward compatible)
               const matches = searchJson(jsonData, simpleSearchTerm);
               if (matches.length > 0) {
-                results.push({ file, matches });
+                results.push({ file: `${jsonRoutePrefix}/${file}`, matches });
               }
             }
           } catch (e) {

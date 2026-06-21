@@ -4,14 +4,64 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-def get_messages_in_order(mapping):
+def get_message_text_parts(message):
+    """Extract visible text parts from text and multimodal_text messages"""
+    if not message:
+        return []
+
+    content = message.get('content', {})
+    parts = content.get('parts', [])
+    content_type = content.get('content_type')
+
+    if content_type and content_type not in ('text', 'multimodal_text'):
+        return []
+
+    text_parts = []
+    for part in parts:
+        if isinstance(part, str) and part.strip():
+            text_parts.append(part)
+        elif isinstance(part, dict) and part.get('content_type') == 'audio_transcription' and part.get('text'):
+            text_parts.append(f"[Transcript]: {part['text']}")
+        elif isinstance(part, dict) and part.get('content_type') == 'image_asset_pointer':
+            pointer = part.get('asset_pointer', '')
+            label = pointer.split('/')[-1] if pointer else 'image attachment'
+            text_parts.append(f"[File]: {label}")
+
+    return text_parts
+
+def is_display_message(message):
+    """Match ChatGPT export display rules for visible conversation messages"""
+    if not message:
+        return False
+    if not message.get('id'):
+        return False
+    author = message.get('author', {})
+    if author.get('role') == 'system' and not message.get('metadata', {}).get('is_user_system_message'):
+        return False
+    return len(get_message_text_parts(message)) > 0
+
+def get_messages_in_order(conversation):
     """
-    Replicates the getMessagesInOrder function from index.html
-    Traverses the conversation tree starting from root nodes
-    Uses iterative approach with a stack to avoid recursion limits
+    Extract visible messages in display order.
+    New ChatGPT exports omit children, so walk from current_node through parents.
     """
+    mapping = conversation.get('mapping', {})
     if not mapping:
         return []
+
+    current_node = conversation.get('current_node')
+    if current_node and current_node in mapping:
+        result = []
+        seen = set()
+
+        while current_node and current_node in mapping and current_node not in seen:
+            seen.add(current_node)
+            node = mapping[current_node]
+            if is_display_message(node.get('message')):
+                result.append(node)
+            current_node = node.get('parent')
+
+        return list(reversed(result))
 
     result = []
 
@@ -32,7 +82,7 @@ def get_messages_in_order(mapping):
             if not node:
                 continue
 
-            if 'message' in node and node['message']:
+            if is_display_message(node.get('message')):
                 result.append(node)
 
             if 'children' in node and node['children']:
@@ -61,8 +111,7 @@ def export_conversation_to_markdown(conversation):
         md += f"*Created: {format_timestamp(create_time)}*\n\n"
 
     # Get messages in order using the tree traversal
-    mapping = conversation.get('mapping', {})
-    messages = get_messages_in_order(mapping)
+    messages = get_messages_in_order(conversation)
 
     # Format each message
     for msg_node in messages:
@@ -73,7 +122,7 @@ def export_conversation_to_markdown(conversation):
         author = message.get('author', {})
         role = author.get('role', 'unknown').upper()
         content = message.get('content', {})
-        parts = content.get('parts', [])
+        parts = get_message_text_parts(message)
         msg_time = message.get('create_time')
 
         if parts:
@@ -93,8 +142,9 @@ def main():
     # Get current directory
     script_dir = Path(__file__).parent
 
-    # Find all JSON files
-    json_files = list(script_dir.glob('*.json'))
+    # Find new-format ChatGPT export chunks
+    source_dir = script_dir / 'Split New Format'
+    json_files = sorted(source_dir.glob('conversations-*.json'))
 
     print(f"Found {len(json_files)} JSON files")
 

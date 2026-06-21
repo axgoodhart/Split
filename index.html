@@ -1017,13 +1017,14 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
             let convArray = Array.isArray(convData) ? convData : [convData];
 
             convArray.forEach((conv) => {
-              const messages = getMessagesInOrder(conv.mapping);
+              const messages = getMessagesInOrder(conv);
               const matches = [];
               messages.forEach((msg, msgIndex) => {
                 if (!msg.message?.content?.parts?.length) return;
+                const textParts = getMessageTextParts(msg.message);
+                if (textParts.length === 0) return;
                 const matchedIndices = [];
-                msg.message.content.parts.forEach((part, partIndex) => {
-                  if (typeof part !== 'string') return;
+                textParts.forEach((part, partIndex) => {
                   const lowerPart = part.toLowerCase();
                   for (const term of andTerms) {
                     let startPos = 0;
@@ -1196,13 +1197,15 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
     }
 
     function renderDrawerContent(container, convData) {
-      const messages = getMessagesInOrder(convData.mapping);
+      const messages = getMessagesInOrder(convData);
       messages.forEach((msg, msgIndex) => {
         if (!msg.message || !msg.message.author || !msg.message.content?.parts?.length) return;
+        const textParts = getMessageTextParts(msg.message);
+        if (textParts.length === 0) return;
         const div = document.createElement('div');
         div.className = `message ${msg.message.author.role}`;
         const timestamp = formatTimestamp(msg.message.create_time);
-        const content = msg.message.content.parts.map(part => parseMarkdown(part)).join('<br>');
+        const content = textParts.map(part => parseMarkdown(part)).join('<br>');
         div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>${content}`;
         container.appendChild(div);
       });
@@ -1502,17 +1505,19 @@ mainImage.addEventListener('click', () => {
   // Render conversation without search highlighting
   function renderNormalConversationView(convo) {
     conversationViewElem.innerHTML = '';
-    const messages = getMessagesInOrder(convo.mapping);
+    const messages = getMessagesInOrder(convo);
 
     messages.forEach((msg, msgIndex) => {
       if (!msg.message || !msg.message.author || !msg.message.content?.parts?.length) return;
+      const textParts = getMessageTextParts(msg.message);
+      if (textParts.length === 0) return;
       const div = document.createElement('div');
       div.className = `message ${msg.message.author.role}`;
       div.dataset.msgIndex = msgIndex;
       const timestamp = formatTimestamp(msg.message.create_time);
 
       // Use markdown parsing for all content
-      const content = msg.message.content.parts.map(part => parseMarkdown(part)).join('<br>');
+      const content = textParts.map(part => parseMarkdown(part)).join('<br>');
       div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>${content}`;
       conversationViewElem.appendChild(div);
     });
@@ -1643,14 +1648,15 @@ mainImage.addEventListener('click', () => {
 
           // For each conversation in that file, find messages with matches
           convArray.forEach((conv, convIndex) => {
-            const messages = getMessagesInOrder(conv.mapping);
+            const messages = getMessagesInOrder(conv);
             // Search messages for matches of term
             const matches = [];
             messages.forEach((msg, msgIndex) => {
               if (!msg.message?.content?.parts?.length) return;
+              const textParts = getMessageTextParts(msg.message);
+              if (textParts.length === 0) return;
               const matchedIndices = [];
-              msg.message.content.parts.forEach((part, partIndex) => {
-                if (typeof part !== 'string') return;
+              textParts.forEach((part, partIndex) => {
                 const lowerPart = part.toLowerCase();
                 let startPos = 0;
                 while(true) {
@@ -1804,7 +1810,7 @@ mainImage.addEventListener('click', () => {
     const matchMap = {};
     matches.forEach(m => { matchMap[m.messageIndex] = m.indices; });
 
-    const messages = getMessagesInOrder(convo.mapping);
+    const messages = getMessagesInOrder(convo);
     messages.forEach((msg, msgIndex) => {
       if (!msg.message || !msg.message.author || !msg.message.content?.parts?.length) return;
       const div = document.createElement('div');
@@ -1818,9 +1824,9 @@ mainImage.addEventListener('click', () => {
         let htmlParts = [];
         const indices = matchMap[msgIndex];
 
-        msg.message.content.parts.forEach((part, partIndex) => {
+        const textParts = getMessageTextParts(msg.message);
+        textParts.forEach((part, partIndex) => {
           const partText = part;
-          if (typeof part !== 'string') return;
           const lowerPart = part.toLowerCase();
           // Find matches for this part
           const partMatches = indices.filter(i => i.partIndex === partIndex);
@@ -1846,7 +1852,7 @@ mainImage.addEventListener('click', () => {
         div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>` + htmlParts.join('<br>');
       } else {
         // No highlight - use markdown parsing
-        const content = msg.message.content.parts.map(part => parseMarkdown(part)).join('<br>');
+        const content = getMessageTextParts(msg.message).map(part => parseMarkdown(part)).join('<br>');
         div.innerHTML = `<strong>${msg.message.author.role.toUpperCase()}</strong> <em style="font-size:small;">(${timestamp})</em><br>${content}`;
       }
       conversationViewElem.appendChild(div);
@@ -1906,11 +1912,11 @@ mainImage.addEventListener('click', () => {
     let md = '';
     searchResults.forEach((result) => {
       md += `## ${result.title}\n\n`;
-      const messages = getMessagesInOrder(result.conversation.mapping);
+      const messages = getMessagesInOrder(result.conversation);
       result.matches.forEach(({ messageIndex }) => {
         const msg = messages[messageIndex];
         if (msg && msg.message && msg.message.content.parts) {
-          const text = msg.message.content.parts.join(' ');
+          const text = getMessageTextParts(msg.message).join(' ');
           md += `- ${text}\n\n`;
         }
       });
@@ -1984,17 +1990,58 @@ mainImage.addEventListener('click', () => {
     renderConversationTabs(conversations, false);
   }
 
-  // Extract messages in order (from your original function, fixed for robustness)
-  function getMessagesInOrder(mapping) {
+  function getMessageTextParts(message) {
+    const content = message?.content;
+    if (!content?.parts?.length) return [];
+    if (content.content_type && !['text', 'multimodal_text'].includes(content.content_type)) return [];
+
+    return content.parts.map(part => {
+      if (typeof part === 'string') return part;
+      if (part?.content_type === 'audio_transcription' && part.text) return `[Transcript]: ${part.text}`;
+      if (part?.content_type === 'image_asset_pointer') {
+        const pointer = part.asset_pointer || '';
+        const label = pointer.split('/').pop() || 'image attachment';
+        return `[File]: ${label}`;
+      }
+      return '';
+    }).filter(part => part.trim());
+  }
+
+  function isDisplayMessage(message) {
+    if (!message?.id || !message.content?.parts?.length || !message.author?.role) return false;
+    if (message.author.role === 'system' && !message.metadata?.is_user_system_message) return false;
+    return getMessageTextParts(message).length > 0;
+  }
+
+  // Extract messages in display order. New exports omit children, so walk current_node upward.
+  function getMessagesInOrder(conversationOrMapping) {
+    if (!conversationOrMapping) return [];
+    const conversation = conversationOrMapping.mapping ? conversationOrMapping : null;
+    const mapping = conversation?.mapping || conversationOrMapping;
     if (!mapping) return [];
+
+    if (conversation?.current_node && mapping[conversation.current_node]) {
+      const result = [];
+      const seen = new Set();
+      let currentNode = conversation.current_node;
+
+      while (currentNode && mapping[currentNode] && !seen.has(currentNode)) {
+        seen.add(currentNode);
+        const node = mapping[currentNode];
+        if (isDisplayMessage(node.message)) result.push(node);
+        currentNode = node.parent;
+      }
+
+      return result.reverse();
+    }
+
     const result = [];
-    // find root(s) where parent == null or missing
     const roots = Object.values(mapping).filter(node => node.parent === null || node.parent === undefined);
     if (roots.length === 0) return [];
 
     function traverse(node) {
       if (!node) return;
-      if (node.message) result.push(node);
+      if (isDisplayMessage(node.message)) result.push(node);
       if (node.children?.length > 0) {
         node.children.forEach(childId => traverse(mapping[childId]));
       }
