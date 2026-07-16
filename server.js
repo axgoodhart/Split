@@ -1,11 +1,33 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { ensureCache, loadCache } = require('./build-search-cache');
 
 const app = express();
 app.use(express.static(__dirname));
 const jsonDirectory = path.join(__dirname, 'Split New Format');
 const jsonRoutePrefix = 'history';
+
+// ==============================
+// SEARCH CACHE (see build-search-cache.js)
+// Holds lowercased searchable text for every conversation file in one Buffer.
+// Searches run as native substring scans over Buffer slices — no JSON parsing.
+// Files added after startup are automatically scanned the old (slow) way.
+// ==============================
+let cache = null; // { meta, text, byName: Map<filename, metaEntry> }
+try {
+  ensureCache();
+  const loaded = loadCache();
+  cache = {
+    meta: loaded.meta,
+    text: loaded.text,
+    byName: new Map(loaded.meta.files.map(f => [f.file, f])),
+  };
+  console.log(`[search-cache] Loaded ${loaded.meta.files.length} files, ${(loaded.text.length / 1e6).toFixed(1)} MB text in memory.`);
+} catch (e) {
+  console.error('[search-cache] Init failed — falling back to slow search:', e.message);
+  cache = null;
+}
 
 app.use(express.json());
 
@@ -41,6 +63,55 @@ app.get('/search-progress/:sessionId', (req, res) => {
   });
 });
 
+// Fast index of all conversations: file, title, create_time (from cache)
+app.get('/conversation-index', (req, res) => {
+  if (!cache) return res.status(503).json({ error: 'search cache unavailable' });
+  res.json(cache.meta.files.map(f => ({
+    file: `${jsonRoutePrefix}/${f.file}`,
+    title: f.title,
+    create_time: f.create_time,
+  })));
+});
+
+// Precompile boolean search groups into Buffers, replicating the original
+// term-skipping semantics exactly (empty values are skipped BEFORE the
+// operator check, so client-style WITHOUT terms stay message-level only).
+function prepareBooleanGroups(searches) {
+  return (searches || []).map(g => {
+    const terms = [];
+    for (const term of (g.terms || [])) {
+      const value = (term.value || '').toLowerCase().trim();
+      if (!value) continue; // original behavior: skip empty-value terms entirely
+      const operator = (term.operator || 'AND').toUpperCase();
+      if (operator === 'AND') {
+        terms.push({ op: 'AND', buf: Buffer.from(value, 'utf8') });
+      } else if (operator === 'WITHOUT') {
+        const excludeValue = (term.exclude || term.value || '').toLowerCase().trim();
+        if (excludeValue) terms.push({ op: 'WITHOUT', buf: Buffer.from(excludeValue, 'utf8') });
+      }
+    }
+    return { hasTerms: Array.isArray(g.terms) && g.terms.length > 0, terms };
+  });
+}
+
+// Match one cached text slice against prepared boolean groups + date range
+function matchBooleanSlice(slice, entry, groups, dates) {
+  if (dates && entry.create_time) {
+    const itemDate = new Date(entry.create_time * 1000);
+    if (itemDate < dates.start || itemDate > dates.end) return false;
+  }
+  for (const g of groups) {
+    if (!g.hasTerms) continue;
+    let ok = true;
+    for (const t of g.terms) {
+      const found = slice.includes(t.buf);
+      if (t.op === 'AND' ? !found : found) { ok = false; break; }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
+
 // Endpoint to search JSON files - supports both simple and boolean search
 app.post('/search-json-files', (req, res) => {
   const sessionId = req.body.sessionId || Date.now().toString();
@@ -61,7 +132,6 @@ app.post('/search-json-files', (req, res) => {
     if (err) return res.status(500).send('Error reading directory');
 
     const jsonFiles = files.filter(file => /^conversations-\d+\.json$/.test(file)).sort();
-    let filesProcessed = 0;
 
     // Initialize search session
     searchSessions.set(sessionId, {
@@ -75,28 +145,62 @@ app.post('/search-json-files', (req, res) => {
       return res.json({ results: [], sessionId });
     }
 
-    jsonFiles.forEach(file => {
-      fs.readFile(path.join(jsonDirectory, file), 'utf8', (err, data) => {
-        filesProcessed++;
+    const finish = () => {
+      const session = searchSessions.get(sessionId);
+      if (session) session.completed = true;
+      res.json({ results, sessionId });
+      setTimeout(() => searchSessions.delete(sessionId), 30000);
+    };
 
-        // Update progress
+    // ---- Fast path: scan cached text slices (no JSON parsing) ----
+    const uncachedFiles = [];
+    let processed = 0;
+
+    if (cache) {
+      const groups = isBoolean ? prepareBooleanGroups(searches) : null;
+      let dates = null;
+      if (isBoolean && dateRange && dateRange.start && dateRange.end) {
+        const start = parseDateRange(dateRange.start);
+        const end = parseDateRange(dateRange.end);
+        if (start && end) dates = { start, end };
+      }
+      const simpleNeedle = simpleSearchTerm ? Buffer.from(simpleSearchTerm, 'utf8') : null;
+
+      for (const file of jsonFiles) {
+        const entry = cache.byName.get(file);
+        if (!entry) { uncachedFiles.push(file); continue; }
+        const slice = cache.text.subarray(entry.offset, entry.offset + entry.byteLength);
+        const matched = isBoolean
+          ? matchBooleanSlice(slice, entry, groups, dates)
+          : slice.includes(simpleNeedle);
+        if (matched) results.push({ file: `${jsonRoutePrefix}/${file}`, matches: ['match'] });
+        processed++;
+      }
+      const session = searchSessions.get(sessionId);
+      if (session) session.processed = processed;
+    } else {
+      uncachedFiles.push(...jsonFiles);
+    }
+
+    if (uncachedFiles.length === 0) return finish();
+
+    // ---- Slow path: files not in cache (added since startup) or no cache ----
+    let slowProcessed = 0;
+    uncachedFiles.forEach(file => {
+      fs.readFile(path.join(jsonDirectory, file), 'utf8', (err, data) => {
+        slowProcessed++;
         const session = searchSessions.get(sessionId);
-        if (session) {
-          session.processed = filesProcessed;
-        }
+        if (session) session.processed = processed + slowProcessed;
 
         if (!err) {
           try {
             const jsonData = JSON.parse(data);
-
             if (isBoolean) {
-              // Boolean search mode
               const booleanMatches = searchJsonBoolean(jsonData, searches, dateRange);
               if (booleanMatches.length > 0) {
                 results.push({ file: `${jsonRoutePrefix}/${file}`, matches: booleanMatches });
               }
             } else {
-              // Simple search mode (backward compatible)
               const matches = searchJson(jsonData, simpleSearchTerm);
               if (matches.length > 0) {
                 results.push({ file: `${jsonRoutePrefix}/${file}`, matches });
@@ -107,20 +211,7 @@ app.post('/search-json-files', (req, res) => {
           }
         }
 
-        if (filesProcessed === jsonFiles.length) {
-          // Mark session as completed
-          const session = searchSessions.get(sessionId);
-          if (session) {
-            session.completed = true;
-          }
-
-          res.json({ results, sessionId });
-
-          // Clean up session after 30 seconds
-          setTimeout(() => {
-            searchSessions.delete(sessionId);
-          }, 30000);
-        }
+        if (slowProcessed === uncachedFiles.length) finish();
       });
     });
   });

@@ -9,9 +9,9 @@
       font-family:'Anxler', 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
       margin: 0;
       display: flex;
-      box-shadow:inset 0 0 10px white;
+      box-shadow:inset 0 0 18px rgba(255,255,255,0.28);
       border-radius:20px;
-      border:4px solid rgb(35, 104, 255); 
+      border:2px solid rgba(35, 104, 255, 0.85);
 background-image:url(bg.png);
 background-size:cover;
       color: white;
@@ -27,7 +27,7 @@ background-size:cover;
       width: 35%;
       backdrop-filter:blur(12px);
       overflow: hidden auto;
-      border-right: 4px double rgb(0, 0, 0);
+      border-right: 1px solid rgba(0, 0, 0, 0.55);
       border-radius:14px;
       display: flex;
       flex-direction: column;
@@ -57,26 +57,29 @@ background-size:cover;
       cursor: text;
     }
     #boolean-search-area:focus-within {
-      min-height: 44px;
-      background:linear-gradient(to bottom, blue, darkblue);
-      border-color: #66d366;
-      box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+      background:linear-gradient(to bottom, rgb(38, 62, 148), rgb(16, 24, 74));
+      border-color: rgba(102, 211, 102, 0.7);
+      box-shadow: 0 0 8px rgba(102, 211, 102, 0.25), 0 2px 6px rgba(0, 0, 0, 0.4);
     }
     .bool-search-input {
       background: transparent;
       border: none;
       outline: none;
-      color: white;
+      color: rgb(22, 32, 84);
       font-family: Poiret One;
-      font-size: 22px;
-      -webkit-text-stroke:1px white;;
+      font-size: 20px;
       min-width: 60px;
       flex: 1;
       padding: 2px 4px;
+      transition: color 0.3s ease;
     }
+    #boolean-search-area:focus-within .bool-search-input { color: white; }
     .bool-search-input::placeholder {
-      color: black;      -webkit-text-stroke:1px blue;
+      color: rgba(22, 32, 84, 0.55);
       font-style: italic;
+    }
+    #boolean-search-area:focus-within .bool-search-input::placeholder {
+      color: rgba(255, 255, 255, 0.45);
     }
     .bool-search-input.truncated {
       max-width: 80px;
@@ -155,7 +158,7 @@ background-size:cover;
       transition: all 0.2s;
     }
     #bool-actions button:hover {
-      background: lime;
+      background: #35c04a;
       color: black;
       border-color: #1a7a2e;
     }
@@ -170,7 +173,7 @@ background-size:cover;
       user-select:none;
       pointer-events: none;
       background: black;
-      border: 1px solid lime;
+      border: 1px solid rgba(50, 205, 50, 0.55);
       border-radius: 8px;
       padding: 4px 0;
       z-index: 5000;
@@ -178,7 +181,8 @@ background-size:cover;
       box-shadow: 0 4px 16px rgba(0,0,0,0.6);
       height:0px;
     }
-    #bool-operator-menu .menu-item {
+    #bool-operator-menu .menu-item,
+    #search-history-menu .menu-item {
       padding: 8px 16px;
       cursor: pointer;
       color: #ccc;
@@ -186,8 +190,49 @@ background-size:cover;
       font-weight: 600;
       transition: background 0.15s;
     }
-    #bool-operator-menu .menu-item:hover {
+    #bool-operator-menu .menu-item:hover,
+    #search-history-menu .menu-item:hover {
       background: #1a7a2e;
+      color: white;
+    }
+
+    /* === Search History Menu === */
+    #search-history-menu {
+      position: absolute;
+      left: 25px;
+      right: 25px;
+      display: none;
+      background: black;
+      border: 1px solid rgba(102, 211, 102, 0.45);
+      border-radius: 8px;
+      padding: 4px 0;
+      z-index: 5001;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    #search-history-menu .menu-item {
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 400;
+    }
+    #search-history-menu .menu-item .hist-op {
+      color: #66d366;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    #search-history-menu .history-clear {
+      border-top: 1px solid rgba(255,255,255,0.15);
+      color: #b0306e;
+      font-size: 11px;
+      text-align: right;
+      font-weight: 700;
+    }
+    #search-history-menu .history-clear:hover {
+      background: #8b2252;
       color: white;
     }
     .date-range-input {
@@ -270,26 +315,24 @@ background-size:cover;
       border-radius: 14px;
       background: rgba(0,0,0,0.4);;
       margin-left: -50px;
-      border: 2px solid rgb(148, 148, 148);
-      transition: all .12s ease;
+      border: 1px solid rgba(200, 200, 200, 0.55);
+      transition: all .18s ease;
       box-shadow: 0 0 2px black;
       margin-right: 40px;
       position: relative;
     }
     .conversation-tab:hover {
-      font-weight: 800;
-      border-color: rgb(255, 255, 255);
+      border-color: rgba(255, 255, 255, 0.9);
       background: darkgreen;
       color: gold;
-      box-shadow: inset 0 0 20px rgb(0, 0, 0);
+      box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.8);
     }
     .conversation-tab.selected {
       background: linear-gradient(to left, darkgreen, black);
       font-weight: bold;
-      transform: scale(1.051);
       color: gold;
-      box-shadow: inset 0 0 20px rgb(0, 0, 0), 0 0 20px goldenrod;
-      border: 3px groove gold;
+      box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.8), 0 0 12px rgba(218, 165, 32, 0.55);
+      border: 2px solid rgba(255, 215, 0, 0.75);
       margin-left: 10px;
     }
       .conversation-tab.search-result {
@@ -344,27 +387,26 @@ background-size:cover;
       padding: 20px;
       border-radius: 10px;
       font-size: large;
+      line-height: 1.5;
       position: relative;
     }
     .message.user {
       background: #27456c87;
-      padding-right: 50px;
-      margin-right: -50px;
-      border-left: 4px solid #2196f3;
-      font-size: x-large;
+      border-left: 3px solid #2196f3;
+      font-size: large;
       color: white;
-      border-top: 2px solid #2196f3;
-      border-bottom: 1px solid #2196f3;
+      border-top: 1px solid rgba(33, 150, 243, 0.7);
+      border-bottom: 1px solid rgba(33, 150, 243, 0.45);
     }
     .message.assistant {
       background: #000000bc;
-      color:#6cfb97bc;
-      margin-left: -10px;
+      color:#7dfca4d9;
       font-family:'Poiret One';
-      font-size: x-large;
-      border-left: 4px solid #4caf50;
-      border-radius: 10px 10px 40px;
-      border-bottom: 1px solid #4caf50;
+      font-size: large;
+      letter-spacing: 0.3px;
+      border-left: 3px solid #4caf50;
+      border-radius: 10px 10px 28px;
+      border-bottom: 1px solid rgba(76, 175, 80, 0.6);
       width: 85%;
       border-right: .5px solid darkgreen;
     }
@@ -396,13 +438,15 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
     transition:all .5s ease !important;
       width:40px;
       transition:all 0.3s;
+      transform:scale(1)rotate(0deg);
+      animation: laterman 1.4s ease-out 1;
     }
 
 
 
     #main-image:hover {
   filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px rgb(0,0,0)) !important;
-  transform:scale(3)rotate(0deg) !important;
+  transform:scale(1.6)rotate(0deg);
 }
 
 #main-image:active {
@@ -411,18 +455,29 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
 
 }
     body {
-      animation:fade 1s 1 ease-in;
+      animation:fade .7s 1 ease-out;
     }
 
+    /* Slim themed scrollbars */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.22);
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.38); background-clip: padding-box; border: 2px solid transparent; }
+
 @keyframes fade {
-  0% { filter:brightness(.001)hue-rotate(1000deg);}
-  100% { filter:brightness(1)hue-rotate(0deg);};
+  0% { opacity:0; filter:brightness(.6);}
+  100% { opacity:1; filter:brightness(1);};
 }
 
     @keyframes laterman {
-    0% {transform:scale(30)rotate(0deg);opacity:.5;}
-    70% {transform: scale(1)rotate(1430deg)}
-    90%{transform:scale(.6)rotate(715deg)}
+    0% {transform:scale(5)rotate(0deg);opacity:0;}
+    70% {transform: scale(1)rotate(350deg);opacity:1;}
+    90%{transform:scale(.92)rotate(370deg)}
     }
 
 
@@ -437,7 +492,8 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
       justify-content: center;      font-family: 'Poiret One';
       -webkit-text-stroke: 1px rgba(255, 255, 255, 0.622);
       text-transform: lowercase;
-      text-decoration: underline 11px dotted teal;
+      text-underline-offset: 10px;
+      text-decoration: underline 5px dotted rgba(0, 128, 128, 0.85);
       display: flex;
       font-size:30px !important;
     }
@@ -448,36 +504,35 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
 
 #search-buttons #export-results{
     font-size:1.5rem;
-    color:black;
-    -webkit-text-stroke:1px green;
     background:transparent;
-filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
+    filter:hue-rotate(290deg)saturate(2.5) brightness(.9);
+  }
 
     /* New styles for historybot */
     #historybot {
-      background: rgba(176,255,226,.15);
-      position: fixed;
-      bottom: 10vh;
-      right: 10vw;
-      width: 60vw;
-      height: 50vw;
-      border: 1px solid #000000;
-      border-radius: 40px;
-      box-shadow: 0 0 2px blue, 0 0 10px skyblue, 0 0 4px white;
-      color: #0f0;
-      font-family: monospace;
-      z-index: 2000;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transform:rotateX(-20deg);
-      backdrop-filter: blur(10px);
+    background: rgba(176, 255, 226, .15);
+    position: fixed;
+    bottom: 5%;
+    right: 15%;
+    width: 70%;
+    height: 300px;
+    border: 1px solid #000000;
+    border-radius: 40px;
+    box-shadow: inset 0 0 12px rgba(135, 206, 235, 0.4), inset 0 2px 8px rgba(255, 255, 255, 0.3), 0 10px 30px rgba(0, 0, 0, 0.45);
+    color: #0f0;
+    font-family: monospace;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: rotateX(8deg);
+    backdrop-filter: blur(6px);
     }
     #historybot-output {
       flex: 10;
       background-color: rgba(0,0,0,.45);
       overflow-y: auto;
-      border: 2px solid rgba(0,255,0,.43);
+      border: 1px solid rgba(0,255,0,.35);
       font-size: 14px;
       border-radius: 20px 20px 0 0;
       margin-bottom: -10px;
@@ -493,7 +548,7 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
     }
     #historybot-inputs input[type="text"] {
       background-color: #182b3d;
-      border: 1px solid red;
+      border: 1px solid rgba(100, 150, 255, 0.55);
       border-radius: 8px 8px 8px 28px;
       color: #0f0;
       padding: 5px 10px;
@@ -584,24 +639,26 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
       padding: 16px;
       border-radius: 10px;
       font-size: large;
+      line-height: 1.5;
       position: relative;
     }
     .drawer-content .message.user {
       background: #27456c87;
-      border-left: 4px solid #2196f3;
-      font-size: x-large;
+      border-left: 3px solid #2196f3;
+      font-size: large;
       color: white;
-      border-top: 2px solid #2196f3;
-      border-bottom: 1px solid #2196f3;
+      border-top: 1px solid rgba(33, 150, 243, 0.7);
+      border-bottom: 1px solid rgba(33, 150, 243, 0.45);
     }
     .drawer-content .message.assistant {
       background: #000000bc;
-      color:#6cfb97bc;
+      color:#7dfca4d9;
       font-family:'Poiret One';
-      font-size: x-large;
-      border-left: 4px solid #4caf50;
-      border-radius: 10px 10px 40px;
-      border-bottom: 1px solid #4caf50;
+      font-size: large;
+      letter-spacing: 0.3px;
+      border-left: 3px solid #4caf50;
+      border-radius: 10px 10px 28px;
+      border-bottom: 1px solid rgba(76, 175, 80, 0.6);
       border-right: .5px solid darkgreen;
     }
     /* Resize handle on left edge of drawer */
@@ -620,6 +677,26 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
     .drawer-resize-handle.active {
       background: rgba(35, 232, 38, 0.3);
     }
+
+#historybot-parameters {
+      display: flex;
+    justify-content: space-between;
+    width: 100%;
+    border-radius: 4px 4px 40px 40px;
+    overflow: hidden;
+    flex-direction:row;
+
+}
+
+#historybot-parameters-origins {
+  flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 50%;
+    border-radius: 8px;
+    align-items: flex-start;
+    gap: 25%;
+}
 
   </style>
 </head>
@@ -644,6 +721,8 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
         <div class="menu-item" data-op="WITHOUT">WITHOUT</div>
         <div class="menu-item" data-op="DATE_RANGE">DATE RANGE...</div>
       </div>
+
+      <div id="search-history-menu"></div>
 
       <div id="progress-container" style="display: none;">
         <div id="progress-bar-bg" style="width: 100%; height: 4px; background-color: #333; border-radius: 2px; margin-top: 8px;">
@@ -674,8 +753,14 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
   <div id="historybot" style="display:none">
     <div id="historybot-output"></div>
     <div id="historybot-inputs">
+      <div id="historybot-parameters">
       <input type="text" id="topic-input" placeholder="Enter topic here" />
-      <input type="text" id="extra-input" placeholder="Enter extra directions here" />
+      <div id ="historybot-parameters-origins">
+      <input type="radio" id="origin" title="Asssistant" />
+            <input type="radio" id="origin" title="User" />
+
+      </div>
+      </div>
     </div>
   </div>
 
@@ -864,11 +949,167 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
       renderBoolSearchArea();
     }
 
+    // ==============================
+    // SEARCH HISTORY (persisted in localStorage)
+    // ==============================
+    const HISTORY_KEY = 'splitSearchHistory';
+    const HISTORY_MAX = 20;
+    const historyMenu = document.getElementById('search-history-menu');
+
+    function loadSearchHistory() {
+      try {
+        const h = JSON.parse(localStorage.getItem(HISTORY_KEY));
+        return Array.isArray(h) ? h : [];
+      } catch (e) { return []; }
+    }
+
+    function saveSearchHistory(h) {
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {}
+    }
+
+    // Snapshot the current bar as [{op, value}] in visual order
+    function serializeCurrentSearch() {
+      const segs = [];
+      for (let i = 0; i < boolSegments.length; i++) {
+        const seg = boolSegments[i];
+        if (seg.type === 'input') {
+          const inp = document.getElementById(seg.id);
+          const v = inp && inp.value.trim();
+          if (!v) continue;
+          let op = 'AND';
+          if (i > 0 && boolSegments[i - 1].type === 'pill' && boolSegments[i - 1].operator !== 'DATE_RANGE') {
+            op = boolSegments[i - 1].operator;
+          }
+          segs.push({ op, value: v });
+        } else if (seg.operator === 'DATE_RANGE') {
+          const dateInp = boolSearchArea.querySelector(`[data-seg-id="${seg.id}"]`);
+          const v = dateInp && dateInp.value.trim();
+          if (v) segs.push({ op: 'DATE_RANGE', value: v });
+        }
+      }
+      return segs;
+    }
+
+    function describeSearch(segs) {
+      return segs.map((s, i) =>
+        s.op === 'DATE_RANGE' ? `TIME ${s.value}` :
+        (i === 0 && s.op === 'AND') ? s.value :
+        `${s.op} ${s.value}`
+      ).join(' ');
+    }
+
+    function recordSearchInHistory() {
+      const segs = serializeCurrentSearch();
+      if (segs.length === 0) return;
+      const display = describeSearch(segs);
+      let h = loadSearchHistory().filter(e => e.display !== display);
+      h.unshift({ display, segments: segs, ts: Date.now() });
+      if (h.length > HISTORY_MAX) h = h.slice(0, HISTORY_MAX);
+      saveSearchHistory(h);
+    }
+
+    // Rebuild pills + inputs from a history entry, then run it
+    function restoreSearchFromHistory(entry) {
+      hideHistoryMenu();
+      boolSegments = [];
+      orCount = 0;
+      lastOperator = 'AND';
+      let needFirstInput = true;
+      const termValues = [];
+      const dateValues = [];
+      for (const t of entry.segments) {
+        if (t.op === 'DATE_RANGE') {
+          boolSegments.push({ type: 'pill', operator: 'DATE_RANGE', id: 'bool-pill-' + nextSegmentId++ });
+          dateValues.push(t.value);
+          continue;
+        }
+        if (!(needFirstInput && t.op === 'AND')) {
+          if (t.op === 'OR') orCount++;
+          boolSegments.push({ type: 'pill', operator: t.op, id: 'bool-pill-' + nextSegmentId++ });
+        }
+        boolSegments.push({ type: 'input', id: 'bool-input-' + nextSegmentId++ });
+        termValues.push(t.value);
+        needFirstInput = false;
+      }
+      if (!boolSegments.some(s => s.type === 'input')) {
+        boolSegments.push({ type: 'input', id: 'bool-input-' + nextSegmentId++ });
+      }
+      renderBoolSearchArea();
+      boolSearchArea.querySelectorAll('.bool-search-input').forEach((inp, i) => {
+        if (termValues[i] !== undefined) inp.value = termValues[i];
+      });
+      boolSearchArea.querySelectorAll('.date-range-input').forEach((inp, i) => {
+        if (dateValues[i] !== undefined) inp.value = dateValues[i];
+      });
+      updateBoolActions();
+      executeBooleanSearch();
+    }
+
+    function showHistoryMenu() {
+      const h = loadSearchHistory();
+      if (h.length === 0) return;
+      historyMenu.innerHTML = '';
+      h.forEach(entry => {
+        const item = document.createElement('div');
+        item.className = 'menu-item';
+        item.title = entry.display;
+        entry.segments.forEach((s, i) => {
+          if (!(i === 0 && s.op === 'AND')) {
+            const op = document.createElement('span');
+            op.className = 'hist-op';
+            op.textContent = (s.op === 'DATE_RANGE' ? 'TIME' : s.op) + ' ';
+            item.appendChild(op);
+          }
+          item.appendChild(document.createTextNode(s.value + ' '));
+        });
+        // mousedown (not click) so it fires before the input blur hides the menu
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          restoreSearchFromHistory(entry);
+        });
+        historyMenu.appendChild(item);
+      });
+      const clearItem = document.createElement('div');
+      clearItem.className = 'menu-item history-clear';
+      clearItem.textContent = 'clear history';
+      clearItem.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        saveSearchHistory([]);
+        hideHistoryMenu();
+      });
+      historyMenu.appendChild(clearItem);
+      historyMenu.style.top = (boolSearchArea.offsetTop + boolSearchArea.offsetHeight + 4) + 'px';
+      historyMenu.style.display = 'block';
+    }
+
+    function hideHistoryMenu() {
+      historyMenu.style.display = 'none';
+    }
+
+    function isSearchBarEmpty() {
+      if (boolSegments.some(s => s.type === 'pill')) return false;
+      const inputs = boolSearchArea.querySelectorAll('.bool-search-input, .date-range-input');
+      return !Array.from(inputs).some(i => i.value.trim());
+    }
+
+    // Show recent searches when focusing an empty bar; hide once typing starts
+    boolSearchArea.addEventListener('focusin', () => {
+      if (isSearchBarEmpty()) showHistoryMenu();
+    });
+    boolSearchArea.addEventListener('input', () => {
+      if (!isSearchBarEmpty()) hideHistoryMenu();
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#search-container')) hideHistoryMenu();
+    });
+
     // Handle Enter key in boolean search inputs
     function handleBoolSearchKeydown(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
         executeBooleanSearch();
+      } else if (e.key === 'Escape') {
+        hideHistoryMenu();
       }
     }
 
@@ -932,6 +1173,8 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
 
     // Execute boolean search
     async function executeBooleanSearch() {
+      recordSearchInHistory();
+      hideHistoryMenu();
       const payload = buildBooleanSearchPayload();
 
       // Check if it's a simple single-term search (backward compat path)
@@ -1237,9 +1480,11 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
 
   openDrawers.forEach(d => {
     d.element.style.zIndex = (d === clickedDrawer) ? 10000 : 0;
-        d.element.style.boxShadow = (d === clickedDrawer) ? 'rgba(100, 100, 255, 0.85) 0px 0px 50px, inset 0 0 200px lime' : 'none';
-    d.element.style.background = (d === clickedDrawer) ? 'white' : 'transparent';
-      
+    d.element.style.boxShadow = (d === clickedDrawer)
+      ? '-8px 0 30px rgba(0, 0, 0, 0.7), 0 0 26px rgba(100, 100, 255, 0.45)'
+      : '-8px 0 30px rgba(0, 0, 0, 0.7), -2px 0 8px rgba(35, 104, 255, 0.15)';
+    d.element.style.background = (d === clickedDrawer) ? 'rgba(5, 15, 25, 0.96)' : 'rgba(5, 15, 25, 0.8)';
+
   });
 });
 
@@ -1337,12 +1582,6 @@ filter:hue-rotate(290deg)contrast(1.2)saturate(4) brightness(.8);  }
       }
     }
 
-function setWindowFocusClass() {
-  mainImage.classList.add('window-focused');
-  mainImage.classList.remove('window-blur');
-  mainImage.style.animation = 'none';
-  mainImage.style.animation = 'laterman 2s linear forwards';
-}
 
 function removeWindowFocusClass() {
   mainImage.classList.remove('window-focused');
@@ -1373,6 +1612,29 @@ mainImage.addEventListener('click', () => {
 
   // Fetch conversation metadata (list of JSON files + load titles)
   async function loadConversationsMetadata() {
+    // Fast path: server-side index (title + date for every file, one request).
+    // Conversation bodies are fetched lazily on click, as before.
+    try {
+      const resp = await fetch('/conversation-index');
+      if (resp.ok) {
+        const index = await resp.json();
+        if (Array.isArray(index) && index.length > 0) {
+          index.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
+          conversations = index.slice(0, 50).map(c => ({
+            file: c.file,
+            title: c.title || c.file,
+            hasData: false,
+            create_time: c.create_time || null,
+          }));
+          renderConversationTabs(conversations, false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('conversation-index unavailable, falling back to full scan:', e);
+    }
+
+    // Slow fallback: fetch every file (original behavior)
     try {
       const files = await (await fetch('/list-json-files')).json();
       const allConversations = [];

@@ -20,11 +20,17 @@ This is a conversation viewer application that displays and searches through Cha
   - Messages have `author.role` (user/assistant/system) and `content.parts` (text content)
 
 ### Backend (server.js)
-- Express.js server running on port 3000
-- Serves static files from current directory
+- Express.js server running on port 9002
+- Serves static files from current directory; conversation JSONs from `Split New Format/` at `/history/*`
 - `/list-json-files` endpoint returns list of JSON files
-- `/search-json-files` POST endpoint performs recursive search through JSON content
-- Uses synchronous file operations for search functionality
+- `/conversation-index` returns cached {file, title, create_time} for all files (fast sidebar load)
+- `/search-json-files` POST endpoint searches via the search cache (see below)
+
+### Search cache (build-search-cache.js)
+- At startup, server builds/loads `search-cache/` (meta.json + text.bin): lowercased message text per file, held in RAM as one Buffer
+- Searches are native substring scans over Buffer slices (~0.2s) instead of re-parsing all JSON per query
+- Cache auto-rebuilds at startup when JSON files change; files added while running are scanned the old slow way until restart
+- Accuracy is unchanged: cache text is a superset of what the client matches, and the client still does final per-message filtering
 
 ### Frontend (index.html)
 - Single-page application with sidebar conversation list and main content viewer
