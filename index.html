@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Conversation Viewer</title>
+  <link rel="stylesheet" href="historybot.css" />
   <style>
     html {background:black;}
     body {
@@ -508,60 +509,6 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
     filter:hue-rotate(290deg)saturate(2.5) brightness(.9);
   }
 
-    /* New styles for historybot */
-    #historybot {
-    background: rgba(176, 255, 226, .15);
-    position: fixed;
-    bottom: 5%;
-    right: 15%;
-    width: 70%;
-    height: 300px;
-    border: 1px solid #000000;
-    border-radius: 40px;
-    box-shadow: inset 0 0 12px rgba(135, 206, 235, 0.4), inset 0 2px 8px rgba(255, 255, 255, 0.3), 0 10px 30px rgba(0, 0, 0, 0.45);
-    color: #0f0;
-    font-family: monospace;
-    z-index: 2000;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transform: rotateX(8deg);
-    backdrop-filter: blur(6px);
-    }
-    #historybot-output {
-      flex: 10;
-      background-color: rgba(0,0,0,.45);
-      overflow-y: auto;
-      border: 1px solid rgba(0,255,0,.35);
-      font-size: 14px;
-      border-radius: 20px 20px 0 0;
-      margin-bottom: -10px;
-    }
-    #historybot-inputs {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      padding: 10px;
-      align-items: center;
-      justify-self: center;
-      box-sizing: border-box;
-    }
-    #historybot-inputs input[type="text"] {
-      background-color: #182b3d;
-      border: 1px solid rgba(100, 150, 255, 0.55);
-      border-radius: 8px 8px 8px 28px;
-      color: #0f0;
-      padding: 5px 10px;
-      width: auto;
-      height: 50px;
-      flex: 1;
-      font-family: monospace;
-      font-size: 14px;
-    }
-    #historybot-inputs #extra-input {
-      border-radius: 8px 8px 28px;
-    }
-
     /* === Slideout Drawer Styles === */
     .slideout-drawer {
       position: fixed;
@@ -678,26 +625,6 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
       background: rgba(35, 232, 38, 0.3);
     }
 
-#historybot-parameters {
-      display: flex;
-    justify-content: space-between;
-    width: 100%;
-    border-radius: 4px 4px 40px 40px;
-    overflow: hidden;
-    flex-direction:row;
-
-}
-
-#historybot-parameters-origins {
-  flex: 1;
-    display: flex;
-    flex-direction: column;
-    width: 50%;
-    border-radius: 8px;
-    align-items: flex-start;
-    gap: 25%;
-}
-
   </style>
 </head>
 <body>
@@ -750,19 +677,84 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
     <div id="conversationView"></div>
   </div>
 
-  <div id="historybot" style="display:none">
-    <div id="historybot-output"></div>
-    <div id="historybot-inputs">
-      <div id="historybot-parameters">
-      <input type="text" id="topic-input" placeholder="Enter topic here" />
-      <div id ="historybot-parameters-origins">
-      <input type="radio" id="origin" title="Asssistant" />
-            <input type="radio" id="origin" title="User" />
+  <section id="historybot" hidden aria-labelledby="historybot-title">
+    <header class="historybot-header">
+      <div>
+        <p class="historybot-kicker">Personal archive instrument</p>
+        <h2 id="historybot-title">Historybot</h2>
+        <p id="historybot-status">Turn your conversation history into a picture.</p>
+      </div>
+      <button id="historybot-close" type="button" aria-label="Close Historybot">&times;</button>
+    </header>
 
-      </div>
-      </div>
+    <div class="historybot-workspace">
+      <form id="historybot-form">
+        <fieldset>
+          <legend>Topics</legend>
+          <div id="historybot-topic-list"></div>
+          <button id="historybot-add-topic" class="historybot-text-button" type="button">+ Compare another topic</button>
+          <p class="historybot-hint">Leave the first topic blank to chart all activity.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Messages from</legend>
+          <div class="historybot-segmented">
+            <label><input type="radio" name="historybot-role" value="both" checked><span>Both</span></label>
+            <label><input type="radio" name="historybot-role" value="user"><span>You</span></label>
+            <label><input type="radio" name="historybot-role" value="assistant"><span>Assistant</span></label>
+          </div>
+        </fieldset>
+
+        <details id="historybot-options">
+          <summary>Date range</summary>
+          <div class="historybot-date-mode">
+            <label><input type="radio" name="historybot-date-mode" value="all" checked> All history</label>
+            <label><input type="radio" name="historybot-date-mode" value="custom"> Custom</label>
+          </div>
+          <div id="historybot-custom-dates" hidden>
+            <label for="historybot-date-start">Start</label>
+            <input id="historybot-date-start" type="date">
+            <label for="historybot-date-end">End</label>
+            <input id="historybot-date-end" type="date">
+          </div>
+        </details>
+
+        <button id="historybot-generate" type="submit">Create infographic</button>
+      </form>
+
+      <section id="historybot-output" aria-live="polite" aria-busy="false">
+        <div class="historybot-toolbar">
+          <div class="historybot-tabs" role="tablist" aria-label="Infographic type">
+            <button id="historybot-tab-calendar" role="tab" type="button" aria-selected="false">Calendar</button>
+            <button id="historybot-tab-frequency" role="tab" type="button" aria-selected="true">Frequency</button>
+          </div>
+          <label>Measure
+            <select id="historybot-measure">
+              <option value="messages">Matching messages</option>
+              <option value="mentions">Mentions</option>
+              <option value="conversations">Conversations</option>
+            </select>
+          </label>
+          <label id="historybot-granularity-wrap">Interval
+            <select id="historybot-granularity">
+              <option value="auto">Auto</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+              <option value="year">Year</option>
+            </select>
+          </label>
+          <label id="historybot-calendar-topic-wrap" hidden>Topic <select id="historybot-calendar-topic"></select></label>
+          <label id="historybot-calendar-year-wrap" hidden>Year <select id="historybot-calendar-year"></select></label>
+          <button id="historybot-save-png" type="button" disabled>Save PNG</button>
+        </div>
+        <p id="historybot-summary"></p>
+        <div id="historybot-chart" role="img" aria-label="Historybot infographic" hidden></div>
+        <div id="historybot-empty">Add a topic—or leave it blank for all activity—then create an infographic.</div>
+        <div id="historybot-error" role="alert"></div>
+      </section>
     </div>
-  </div>
+  </section>
 
   <!-- Drawer container for slideout panels -->
   <div id="drawer-container"></div>
@@ -1599,17 +1591,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setWindowFocusClass();
 });
 
-// Toggle historybot visibility on main-image click
-mainImage.addEventListener('click', () => {
-
-  const historybot = document.getElementById('historybot');
-  if (historybot.style.display === 'flex') {
-    historybot.style.display = 'none';
-  } else {
-    historybot.style.display = 'flex';
-  }
-});
-
   // Fetch conversation metadata (list of JSON files + load titles)
   async function loadConversationsMetadata() {
     // Fast path: server-side index (title + date for every file, one request).
@@ -2332,5 +2313,7 @@ mainImage.addEventListener('click', () => {
   loadConversationsMetadata();
 
   </script>
+  <script src="/vendor/echarts/echarts.min.js"></script>
+  <script src="historybot.js"></script>
 </body>
 </html>

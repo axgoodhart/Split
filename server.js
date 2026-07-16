@@ -2,8 +2,10 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { ensureCache, loadCache } = require('./build-search-cache');
+const { queryInfographics } = require('./historybot-analytics');
 
 const app = express();
+app.use('/vendor/echarts', express.static(path.join(__dirname, 'node_modules/echarts/dist')));
 app.use(express.static(__dirname));
 const jsonDirectory = path.join(__dirname, 'Split New Format');
 const jsonRoutePrefix = 'history';
@@ -20,6 +22,7 @@ try {
   const loaded = loadCache();
   cache = {
     meta: loaded.meta,
+    historyMeta: loaded.historyMeta,
     text: loaded.text,
     byName: new Map(loaded.meta.files.map(f => [f.file, f])),
   };
@@ -34,6 +37,52 @@ app.use(express.json());
 // Serve static files (e.g., index.html, CSS, JS) from the current directory
 app.use(express.static(__dirname));
 app.use(`/${jsonRoutePrefix}`, express.static(jsonDirectory));
+
+app.get('/api/historybot/status', (req, res) => {
+  if (!cache?.historyMeta) {
+    return res.status(503).json({
+      ready: false,
+      error: {
+        code: 'HISTORYBOT_CACHE_UNAVAILABLE',
+        message: "Historybot's local index is unavailable. Restart Split to rebuild it.",
+      },
+    });
+  }
+  const { historyMeta } = cache;
+  res.json({
+    ready: true,
+    timezone: historyMeta.timezone,
+    cacheBuiltAt: new Date(historyMeta.builtAt).toISOString(),
+    sourceRange: historyMeta.sourceRange,
+    stats: {
+      conversations: historyMeta.stats.conversations,
+      messages: historyMeta.stats.messages,
+      undatedMessages: historyMeta.stats.undatedMessages,
+    },
+  });
+});
+
+app.post('/api/historybot/infographics', (req, res) => {
+  if (!cache?.historyMeta) {
+    return res.status(503).json({
+      error: {
+        code: 'HISTORYBOT_CACHE_UNAVAILABLE',
+        message: "Historybot's local index is unavailable. Restart Split to rebuild it.",
+      },
+    });
+  }
+  try {
+    res.json(queryInfographics(req.body, cache.text, cache.historyMeta));
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      error: {
+        code: error.code || 'HISTORYBOT_QUERY_FAILED',
+        message: status === 500 ? 'Historybot could not finish this infographic. Try again.' : error.message,
+      },
+    });
+  }
+});
 
 // Endpoint to list all JSON files
 app.get('/list-json-files', (req, res) => {

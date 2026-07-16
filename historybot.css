@@ -1,0 +1,299 @@
+#historybot {
+  --hb-surface: #10181e;
+  --hb-plot: #0c1116;
+  --hb-ink: #d8e2ea;
+  --hb-muted: #8e9aa5;
+  --hb-rule: #283139;
+  --hb-focus: #78a7ff;
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 4000;
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, calc(100vw - 2rem));
+  height: min(760px, calc(100vh - 2rem));
+  min-height: 520px;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: var(--hb-ink);
+  background: color-mix(in oklab, var(--hb-surface) 94%, #17372f);
+  border: 1px solid #33414b;
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .62);
+  font-family: "Gill Sans", "Trebuchet MS", sans-serif;
+  transform-origin: right bottom;
+  animation: historybot-enter 180ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+#historybot[hidden] { display: none; }
+
+@keyframes historybot-enter {
+  from { opacity: 0; transform: translateY(12px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.historybot-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 20px 22px 18px;
+  border-bottom: 1px solid var(--hb-rule);
+  background: #121c22;
+}
+
+.historybot-kicker {
+  margin: 0 0 4px;
+  color: #8cb9a8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+#historybot-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 400;
+  letter-spacing: -.035em;
+  line-height: .95;
+}
+
+#historybot-status {
+  margin: 8px 0 0;
+  color: var(--hb-muted);
+  font-size: 14px;
+}
+
+#historybot-close {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--hb-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#historybot-close:hover { color: var(--hb-ink); border-color: var(--hb-rule); }
+
+.historybot-workspace {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+
+#historybot-form {
+  overflow-y: auto;
+  padding: 22px 18px;
+  border-right: 1px solid var(--hb-rule);
+  background: #0f171c;
+}
+
+#historybot fieldset {
+  min-width: 0;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+}
+
+#historybot legend,
+#historybot-options summary {
+  margin-bottom: 10px;
+  color: #b8c5cf;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.historybot-topic-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.historybot-topic-row:first-child { grid-template-columns: 1fr; }
+
+.historybot-topic-row label {
+  grid-column: 1 / -1;
+  color: var(--hb-muted);
+  font-size: 11px;
+}
+
+#historybot input[type="text"],
+#historybot input[type="date"],
+#historybot select {
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  color: var(--hb-ink);
+  background: #182129;
+  border: 1px solid #35434e;
+  border-radius: 5px;
+  padding: 9px 11px;
+  font: inherit;
+  color-scheme: dark;
+}
+
+#historybot input[type="text"] { width: 100%; }
+
+.historybot-remove-topic {
+  width: 44px;
+  height: 44px;
+  color: #c7929c;
+  background: transparent;
+  border: 1px solid #46373d;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.historybot-text-button {
+  min-height: 44px;
+  padding: 8px 0;
+  color: #9eb9e7;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.historybot-hint {
+  margin: 3px 0 0;
+  color: var(--hb-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.historybot-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid #35434e;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.historybot-segmented label { min-width: 0; }
+.historybot-segmented input { position: absolute; opacity: 0; }
+.historybot-segmented span {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 0 5px;
+  color: var(--hb-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.historybot-segmented label + label span { border-left: 1px solid #35434e; }
+.historybot-segmented input:checked + span { color: #e1e9f0; background: #29445a; }
+.historybot-segmented input:focus-visible + span { outline: 3px solid var(--hb-focus); outline-offset: -3px; }
+
+#historybot-options {
+  margin-bottom: 24px;
+  border-top: 1px solid var(--hb-rule);
+  border-bottom: 1px solid var(--hb-rule);
+  padding: 14px 0;
+}
+
+#historybot-options summary { margin: 0; cursor: pointer; }
+.historybot-date-mode { display: flex; gap: 12px; margin: 16px 0 10px; font-size: 13px; }
+#historybot-custom-dates { display: grid; grid-template-columns: 48px 1fr; align-items: center; gap: 8px; font-size: 12px; }
+#historybot-custom-dates[hidden] { display: none; }
+
+#historybot-generate,
+#historybot-save-png {
+  min-height: 44px;
+  color: #e4edf4;
+  background: #285f54;
+  border: 1px solid #3f7e70;
+  border-radius: 5px;
+  padding: 9px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#historybot-generate { width: 100%; }
+#historybot button:disabled { opacity: .45; cursor: not-allowed; }
+
+#historybot-output {
+  min-width: 0;
+  overflow: auto;
+  padding: 16px 18px 20px;
+  background: var(--hb-plot);
+}
+
+.historybot-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hb-rule);
+}
+
+.historybot-toolbar > label {
+  display: grid;
+  gap: 4px;
+  color: var(--hb-muted);
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.historybot-toolbar select { min-height: 38px; padding: 6px 30px 6px 9px; font-size: 13px; }
+.historybot-tabs { display: flex; margin-right: auto; }
+.historybot-tabs button {
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--hb-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.historybot-tabs button[aria-selected="true"] { color: var(--hb-ink); border-color: #5e8de7; }
+#historybot-summary { min-height: 20px; margin: 13px 0 4px; color: #a9b6c0; font-size: 13px; }
+#historybot-chart { width: 100%; min-height: 470px; }
+#historybot-chart[hidden] { display: none; }
+#historybot-empty,
+#historybot-error {
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+  padding: 24px;
+  box-sizing: border-box;
+  color: var(--hb-muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(18px, 2.4vw, 28px);
+  line-height: 1.35;
+  text-align: center;
+}
+#historybot-error { min-height: 0; color: #e5a7b0; font-family: inherit; font-size: 14px; }
+#historybot-error:empty { display: none; }
+
+#historybot :focus-visible { outline: 3px solid var(--hb-focus); outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  #historybot { inset: .5rem; width: auto; height: calc(100vh - 1rem); min-height: 0; }
+  .historybot-header { padding: 16px; }
+  .historybot-workspace { display: block; overflow-y: auto; }
+  #historybot-form { overflow: visible; border-right: 0; border-bottom: 1px solid var(--hb-rule); }
+  #historybot-output { overflow: visible; }
+  .historybot-toolbar { display: grid; grid-template-columns: 1fr; align-items: stretch; }
+  .historybot-tabs { margin: 0; }
+  .historybot-tabs button { flex: 1; }
+  .historybot-toolbar select, #historybot-save-png { width: 100%; }
+  #historybot-chart { min-height: 410px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #historybot { animation: none; }
+}

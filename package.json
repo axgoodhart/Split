@@ -1,12 +1,13 @@
 {
   "dependencies": {
+    "echarts": "6.1.0",
     "express": "^5.1.0"
   },
   "name": "split",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:historybot": "node --test test/historybot-*.test.js",
     "start": "node server.js"
   },
   "keywords": [],

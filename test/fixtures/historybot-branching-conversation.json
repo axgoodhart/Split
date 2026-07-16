@@ -1,0 +1,100 @@
+[
+  {
+    "title": "Branch fixture title",
+    "create_time": 1704067200,
+    "current_node": "assistant-current",
+    "mapping": {
+      "root": {
+        "id": "root",
+        "parent": null,
+        "children": ["user-1"],
+        "message": null
+      },
+      "user-1": {
+        "id": "user-1",
+        "parent": "root",
+        "children": ["assistant-current", "assistant-hidden"],
+        "message": {
+          "id": "message-user-1",
+          "author": { "role": "user" },
+          "create_time": 1704153600,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              "Art art CARTOGRAPHY",
+              { "content_type": "audio_transcription", "text": "Spoken art" },
+              { "content_type": "image_asset_pointer", "asset_pointer": "file-service://secret-image.png", "text": "attachment label" }
+            ]
+          }
+        }
+      },
+      "assistant-current": {
+        "id": "assistant-current",
+        "parent": "user-1",
+        "children": [],
+        "message": {
+          "id": "message-assistant-current",
+          "author": { "role": "assistant" },
+          "create_time": null,
+          "content": { "content_type": "text", "parts": ["Current reply"] }
+        }
+      },
+      "assistant-hidden": {
+        "id": "assistant-hidden",
+        "parent": "user-1",
+        "children": [],
+        "message": {
+          "id": "message-assistant-hidden",
+          "author": { "role": "assistant" },
+          "create_time": 1704240000,
+          "content": { "content_type": "text", "parts": ["Hidden regenerated reply"] }
+        }
+      },
+      "system": {
+        "id": "system",
+        "parent": null,
+        "children": [],
+        "message": {
+          "id": "message-system",
+          "author": { "role": "system" },
+          "create_time": 1704067200,
+          "content": { "content_type": "text", "parts": ["System secret"] }
+        }
+      }
+    }
+  },
+  {
+    "title": "Fallback fixture title",
+    "create_time": null,
+    "mapping": {
+      "fallback-root": {
+        "id": "fallback-root",
+        "parent": null,
+        "children": ["fallback-user", "fallback-assistant"],
+        "message": null
+      },
+      "fallback-user": {
+        "id": "fallback-user",
+        "parent": "fallback-root",
+        "children": [],
+        "message": {
+          "id": "message-fallback-user",
+          "author": { "role": "user" },
+          "create_time": null,
+          "content": { "content_type": "text", "parts": ["Undated fallback"] }
+        }
+      },
+      "fallback-assistant": {
+        "id": "fallback-assistant",
+        "parent": "fallback-root",
+        "children": [],
+        "message": {
+          "id": "message-fallback-assistant",
+          "author": { "role": "assistant" },
+          "create_time": 1704326400,
+          "content": { "content_type": "text", "parts": ["Dated fallback"] }
+        }
+      }
+    }
+  }
+]

@@ -27,10 +27,17 @@ This is a conversation viewer application that displays and searches through Cha
 - `/search-json-files` POST endpoint searches via the search cache (see below)
 
 ### Search cache (build-search-cache.js)
-- At startup, server builds/loads `search-cache/` (meta.json + text.bin): lowercased message text per file, held in RAM as one Buffer
+- At startup, server builds/loads `search-cache/` (`meta.json`, `historybot-meta.json`, and `text.bin`): lowercased message text per file, held in RAM as one shared Buffer
 - Searches are native substring scans over Buffer slices (~0.2s) instead of re-parsing all JSON per query
 - Cache auto-rebuilds at startup when JSON files change; files added while running are scanned the old slow way until restart
 - Accuracy is unchanged: cache text is a superset of what the client matches, and the client still does final per-message filtering
+
+### Historybot infographics
+- Historybot counts user and assistant messages on each conversation's visible/current branch; hidden regenerated branches, system/tool messages, filenames, titles, and attachment pointers are excluded
+- Topic matching is a case-insensitive literal substring. A blank topic charts all activity; up to five topics can be compared
+- Message dates use `message.create_time`, then the conversation timestamp as fallback, converted to `HISTORYBOT_TIMEZONE` (default `America/New_York`) during cache construction
+- Apache ECharts 6.1.0 is installed locally and served by Split; Historybot makes no CDN or LLM requests
+- Calendar, frequency, measure, and interval changes reuse one local analytics response, and the displayed chart can be saved as a 2× PNG
 
 ### Frontend (index.html)
 - Single-page application with sidebar conversation list and main content viewer
@@ -45,7 +52,12 @@ This is a conversation viewer application that displays and searches through Cha
 ```bash
 node server.js
 ```
-Server will run on http://localhost:3000
+Server will run on http://localhost:9002
+
+### Run focused Historybot tests
+```bash
+npm run test:historybot
+```
 
 ### Split large JSON files
 ```bash
@@ -56,12 +68,12 @@ Interactive script that prompts for:
 - Maximum file size in MB
 
 ### View conversations
-Open http://localhost:3000 in browser after starting server
+Open http://localhost:9002 in browser after starting server
 
 ## Development Notes
 
-- No build process or package.json - uses vanilla HTML/CSS/JS
-- No external dependencies beyond Node.js built-ins (express, fs, path)
+- No frontend build process - uses vanilla HTML/CSS/JS
+- Runtime dependencies are Express and the locally served ECharts package
 - Python script requires Python 3+
 - JSON files can be very large (37MB+) - use caution when reading entire files
 - Search functionality loads full file content into memory for each search
