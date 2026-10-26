@@ -1777,6 +1777,13 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
     }
 
 
+function setWindowFocusClass() {
+  mainImage.classList.add('window-focused');
+  mainImage.classList.remove('window-blur');
+  mainImage.style.animation = 'none';
+  mainImage.style.animation = 'laterman 2s linear forwards';
+}
+
 function removeWindowFocusClass() {
   mainImage.classList.remove('window-focused');
   mainImage.classList.add('window-blur');
