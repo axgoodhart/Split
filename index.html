@@ -584,7 +584,18 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
       font: inherit;
       font-size: 14px;
     }
-    .export-options input[type="number"]:focus { outline: none; border-color: rgba(102, 211, 102, 0.7); }
+    .export-options input[type="number"]:focus,
+    .export-options select:focus { outline: none; border-color: rgba(102, 211, 102, 0.7); }
+    .export-options select {
+      min-height: 30px;
+      padding: 0 6px;
+      color: white;
+      background: #182129;
+      border: 1px solid #35434e;
+      border-radius: 5px;
+      font: inherit;
+      font-size: 14px;
+    }
     .export-hint { margin: 6px 0 0; color: #8e9aa5; font-size: 11px; line-height: 1.4; }
     .export-preview { display: flex; flex-direction: column; min-height: 0; }
     #export-summary {
@@ -818,6 +829,22 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
             <label><input type="radio" name="export-roles" value="user-assistant"> Only user &amp; assistant</label>
             <label><input type="radio" name="export-roles" value="user"> Only user</label>
             <label><input type="radio" name="export-roles" value="assistant"> Only assistant</label>
+          </fieldset>
+          <fieldset>
+            <legend>Match length</legend>
+            <div class="export-row">
+              <label for="export-len-min">At least</label>
+              <input type="number" id="export-len-min" min="0" step="1" placeholder="0" inputmode="numeric">
+              <label for="export-len-max">at most</label>
+              <input type="number" id="export-len-max" min="1" step="1" placeholder="&infin;" inputmode="numeric">
+            </div>
+            <div class="export-row">
+              <select id="export-len-unit" aria-label="Length unit">
+                <option value="chars" selected>characters</option>
+                <option value="words">words</option>
+              </select>
+            </div>
+            <p class="export-hint">Applies to matched messages, before the per-conversation limit.</p>
           </fieldset>
           <fieldset>
             <legend>Per conversation</legend>
@@ -2347,6 +2374,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportForm = document.getElementById('export-form');
   const exportLimitInput = document.getElementById('export-limit');
   const exportContextN = document.getElementById('export-context-n');
+  const exportLenMin = document.getElementById('export-len-min');
+  const exportLenMax = document.getElementById('export-len-max');
+  const exportLenUnit = document.getElementById('export-len-unit');
   const exportSummary = document.getElementById('export-summary');
   const exportPreviewText = document.getElementById('export-preview-text');
   const exportConfirm = document.getElementById('export-confirm');
@@ -2354,7 +2384,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function readExportOptions() {
     const limit = parseInt(exportLimitInput.value, 10);
     const contextN = parseInt(exportContextN.value, 10);
+    const lenMin = parseInt(exportLenMin.value, 10);
+    const lenMax = parseInt(exportLenMax.value, 10);
     return {
+      lenMin: lenMin > 0 ? lenMin : 0,
+      lenMax: lenMax > 0 ? lenMax : Infinity,
+      lenUnit: exportLenUnit.value,
       roles: exportForm.querySelector('input[name="export-roles"]:checked')?.value || 'all',
       limit: limit > 0 ? limit : Infinity,
       context: exportForm.querySelector('input[name="export-context"]:checked')?.value || 'none',
@@ -2368,6 +2403,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return role === roles;
   }
 
+  function exportTextLength(message, unit) {
+    const text = getMessageTextParts(message).join(' ').trim();
+    return unit === 'words' ? (text ? text.split(/\s+/).length : 0) : text.length;
+  }
+
+  function exportLengthAllowed(message, opts) {
+    const len = exportTextLength(message, opts.lenUnit);
+    return len >= opts.lenMin && len <= opts.lenMax;
+  }
+
   function buildExportMarkdown(opts) {
     let md = '';
     let messageCount = 0;
@@ -2377,6 +2422,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const matched = result.matches
         .map(m => m.messageIndex)
         .filter(i => messages[i] && exportRoleAllowed(messages[i].message.author.role, opts.roles))
+        .filter(i => exportLengthAllowed(messages[i].message, opts))
         .slice(0, opts.limit);
       if (matched.length === 0) return;
 
