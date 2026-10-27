@@ -23,13 +23,17 @@ const HISTORYBOT_META_PATH = path.join(CACHE_DIR, 'historybot-meta.json');
 const TEXT_PATH = path.join(CACHE_DIR, 'text.bin');
 const FILE_RE = /^conversations-\d+\.json$/;
 const CACHE_SCHEMA_VERSION = 2;
-const HISTORYBOT_META_SCHEMA_VERSION = 1;
+const HISTORYBOT_META_SCHEMA_VERSION = 2; // 2: adds the per-conversation `conversations` array
 const DEFAULT_TIMEZONE = 'America/New_York';
 const RECORD_OFFSET = 0;
 const RECORD_LENGTH = 1;
 const RECORD_DATE = 2;
 const RECORD_ROLE = 3;
 const RECORD_CONVERSATION = 4;
+const CONVERSATION_FILE = 0;
+const CONVERSATION_INDEX = 1;
+const CONVERSATION_TITLE = 2;
+const CONVERSATION_CREATE_TIME = 3;
 
 function listJsonFiles() {
   return fs.readdirSync(JSON_DIR).filter(f => FILE_RE.test(f)).sort();
@@ -157,6 +161,7 @@ function extractOrdinaryMessageText(message) {
 function buildFileCacheData(conversations, startOffset = 0, timezone = DEFAULT_TIMEZONE, conversationOrdinalStart = 0) {
   const chunks = [];
   const records = [];
+  const conversationRefs = []; // [indexInFile, title, create_time] per conversation, in ordinal order
   const stats = { conversations: 0, messages: 0, timestampFallbacks: 0, undatedMessages: 0 };
   let relativeOffset = 0;
   const append = value => {
@@ -170,6 +175,11 @@ function buildFileCacheData(conversations, startOffset = 0, timezone = DEFAULT_T
     if (!conversation || typeof conversation !== 'object') return;
     const conversationOrdinal = conversationOrdinalStart + stats.conversations;
     stats.conversations++;
+    conversationRefs.push([
+      index,
+      typeof conversation.title === 'string' ? conversation.title : '',
+      Number.isFinite(conversation.create_time) ? conversation.create_time : null,
+    ]);
     append(typeof conversation.title === 'string' ? conversation.title.toLowerCase() : '');
     const activeNodes = getMessagesInOrder(conversation);
     const activeMessages = new Set(activeNodes.map(node => node?.message).filter(Boolean));
@@ -219,7 +229,7 @@ function buildFileCacheData(conversations, startOffset = 0, timezone = DEFAULT_T
     }
   });
 
-  return { buffer: Buffer.concat(chunks), records, stats };
+  return { buffer: Buffer.concat(chunks), records, conversations: conversationRefs, stats };
 }
 
 function extractCreateTime(json) {
@@ -291,6 +301,7 @@ function buildCache(log = console.log) {
   const out = fs.openSync(tmpText, 'w');
   const metaFiles = [];
   const records = [];
+  const conversations = [];
   const stats = { conversations: 0, messages: 0, timestampFallbacks: 0, undatedMessages: 0 };
   const textBuildId = `${Date.now()}-${process.pid}`;
   const header = Buffer.from(`SPLIT_CACHE_V2:${textBuildId}\n`, 'utf8');
@@ -310,6 +321,7 @@ function buildCache(log = console.log) {
       const built = buildFileCacheData(convs, offset, timezone, stats.conversations);
       fileBuffer = built.buffer;
       records.push(...built.records);
+      for (const ref of built.conversations) conversations.push([file, ...ref]);
       for (const key of Object.keys(stats)) stats[key] += built.stats[key];
     } catch (e) {
       log(`[search-cache] WARN: could not parse ${file}: ${e.message}`);
@@ -339,9 +351,11 @@ function buildCache(log = console.log) {
     ...shared,
     sourceRange,
     recordLayout: ['offset', 'byteLength', 'date', 'role', 'conversationOrdinal'],
+    conversationLayout: ['file', 'indexInFile', 'title', 'create_time'],
     roles: { u: 'user', a: 'assistant' },
     stats,
     records,
+    conversations, // indexed by conversationOrdinal
   };
   fs.writeFileSync(tmpMeta, JSON.stringify(meta));
   fs.writeFileSync(tmpHistoryMeta, JSON.stringify(historyMeta));
@@ -391,6 +405,10 @@ module.exports = {
   RECORD_DATE,
   RECORD_ROLE,
   RECORD_CONVERSATION,
+  CONVERSATION_FILE,
+  CONVERSATION_INDEX,
+  CONVERSATION_TITLE,
+  CONVERSATION_CREATE_TIME,
   ensureCache,
   buildCache,
   loadCache,

@@ -39,6 +39,13 @@ This is a conversation viewer application that displays and searches through Cha
 - Apache ECharts 6.1.0 is installed locally and served by Split; Historybot makes no CDN or LLM requests
 - Calendar, frequency, measure, and interval changes reuse one local analytics response, and the displayed chart can be saved as a 2× PNG
 
+### Message search (for briizOS / Stylofact, message-search.js)
+- `historybot-meta.json` schema 2 adds a `conversations` array (`[file, indexInFile, title, create_time]` per conversation, indexed by the record's conversation ordinal). The first start after this change rebuilds the cache
+- `POST /api/messages/search` body `{ queries: [...], role: "user"|"assistant"|"both", from, to, limit }`: case-insensitive literal phrase match over the same text buffer; one hit per message per phrasing; ranked by how many phrasings a message contains, then newest first. Returns message text (lowercased, cut at 4000 chars with a `truncated` flag), conversation number, position in the conversation, title and dates
+- `GET /api/messages/context?conversation=&index=&before=1&after=1`: the message and its neighbours in the same conversation, from the buffer; no JSON parsing
+- `/api/historybot/status` now reports `metaSchemaVersion` and `messageSearch` so briizOS can tell the index is ready for these routes
+- Caps and punctuation are not preserved anywhere here by design: these are opinions to quote, not samples of writing style
+
 ### Frontend (index.html)
 - Single-page application with sidebar conversation list and main content viewer
 - Real-time search with highlighting of matched terms
@@ -57,6 +64,7 @@ Server will run on http://localhost:9002
 ### Run focused Historybot tests
 ```bash
 npm run test:historybot
+npm run test:messages
 ```
 
 ### Split large JSON files

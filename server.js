@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { ensureCache, loadCache } = require('./build-search-cache');
 const { queryInfographics } = require('./historybot-analytics');
+const { searchMessages, messageContext } = require('./message-search');
 
 const app = express();
 app.use('/vendor/echarts', express.static(path.join(__dirname, 'node_modules/echarts/dist')));
@@ -51,6 +52,8 @@ app.get('/api/historybot/status', (req, res) => {
   const { historyMeta } = cache;
   res.json({
     ready: true,
+    metaSchemaVersion: historyMeta.schemaVersion,
+    messageSearch: Array.isArray(historyMeta.conversations), // message-level routes need schema 2+
     timezone: historyMeta.timezone,
     cacheBuiltAt: new Date(historyMeta.builtAt).toISOString(),
     sourceRange: historyMeta.sourceRange,
@@ -60,6 +63,42 @@ app.get('/api/historybot/status', (req, res) => {
       undatedMessages: historyMeta.stats.undatedMessages,
     },
   });
+});
+
+// ==============================
+// MESSAGE SEARCH (see message-search.js)
+// Message-level search and context over the same in-memory cache, for briizOS.
+// ==============================
+function sendMessageSearchError(res, error, fallback) {
+  const status = error.statusCode || 500;
+  res.status(status).json({
+    error: {
+      code: error.code || fallback,
+      message: status === 500 ? 'Split could not finish this request. Try again.' : error.message,
+    },
+  });
+}
+
+app.post('/api/messages/search', (req, res) => {
+  if (!cache?.historyMeta) {
+    return res.status(503).json({ error: { code: 'MESSAGE_CACHE_UNAVAILABLE', message: "Split's local index is unavailable. Restart Split to rebuild it." } });
+  }
+  try {
+    res.json(searchMessages(req.body, cache.text, cache.historyMeta));
+  } catch (error) {
+    sendMessageSearchError(res, error, 'MESSAGE_SEARCH_FAILED');
+  }
+});
+
+app.get('/api/messages/context', (req, res) => {
+  if (!cache?.historyMeta) {
+    return res.status(503).json({ error: { code: 'MESSAGE_CACHE_UNAVAILABLE', message: "Split's local index is unavailable. Restart Split to rebuild it." } });
+  }
+  try {
+    res.json(messageContext(req.query, cache.text, cache.historyMeta));
+  } catch (error) {
+    sendMessageSearchError(res, error, 'MESSAGE_CONTEXT_FAILED');
+  }
 });
 
 app.post('/api/historybot/infographics', (req, res) => {

@@ -8,6 +8,7 @@
   "main": "server.js",
   "scripts": {
     "test:historybot": "node --test test/historybot-*.test.js",
+    "test:messages": "node --test test/message-search.test.js",
     "start": "node server.js"
   },
   "keywords": [],
