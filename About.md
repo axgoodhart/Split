@@ -44,6 +44,7 @@ This is a conversation viewer application that displays and searches through Cha
 - `POST /api/messages/search` body `{ queries: [...], role: "user"|"assistant"|"both", from, to, limit }`: case-insensitive literal phrase match over the same text buffer; one hit per message per phrasing; ranked by how many phrasings a message contains, then newest first. Returns message text (lowercased, cut at 4000 chars with a `truncated` flag), conversation number, position in the conversation, title and dates
 - `GET /api/messages/context?conversation=&index=&before=1&after=1`: the message and its neighbours in the same conversation, from the buffer; no JSON parsing
 - `/api/historybot/status` now reports `metaSchemaVersion` and `messageSearch` so briizOS can tell the index is ready for these routes
+- Historybot topics take `AND` / `OR` / `WITHOUT` pills like the search bar (`{ terms: [{ value, operator }] }` per topic; plain strings still work). Clicking a frequency interval, a calendar day, or **Show conversations** calls `POST /api/historybot/conversations` and lists the conversations behind that count; selecting one opens it in the viewer as a highlighted search-result set (`showSearchResults` / `buildConversationMatches` in `index.html`) or in a slideout drawer
 - Caps and punctuation are not preserved anywhere here by design: these are opinions to quote, not samples of writing style
 
 ### Frontend (index.html)

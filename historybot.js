@@ -8,6 +8,12 @@
     mentions: 'Mentions',
     conversations: 'Conversations',
   };
+  // ==== TOPIC LIMITS (mirror historybot-analytics.js) ====
+  const MAX_TOPICS = 5;
+  const MAX_TERMS = 8;
+  const MAX_OR = 2;
+  const OPERATORS = ['AND', 'OR', 'WITHOUT'];
+
   const state = {
     response: null,
     view: 'frequency',
@@ -17,6 +23,8 @@
     calendarYear: null,
     chart: null,
     requestController: null,
+    drill: null,       // { topicId, topic, start, end, label, response, results, error, controller }
+    canDrill: false,   // index has conversation refs (status.messageSearch)
     openedOnce: false,
     reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   };
@@ -33,26 +41,97 @@
       'historybot-tab-calendar', 'historybot-tab-frequency', 'historybot-measure',
       'historybot-granularity', 'historybot-granularity-wrap', 'historybot-calendar-topic',
       'historybot-calendar-topic-wrap', 'historybot-calendar-year', 'historybot-calendar-year-wrap',
-      'historybot-save-png', 'historybot-summary', 'historybot-chart', 'historybot-empty', 'historybot-error',
+      'historybot-save-png', 'historybot-summary', 'historybot-browse', 'historybot-chart', 'historybot-empty', 'historybot-error',
+      'historybot-drilldown', 'historybot-drilldown-title', 'historybot-drilldown-meta', 'historybot-drilldown-topics',
+      'historybot-drilldown-close', 'historybot-drilldown-note', 'historybot-drilldown-list',
     ];
     ids.forEach(id => { elements[id] = document.getElementById(id); });
   }
 
+  // ---- Topic rows: each row is a strip of term inputs separated by AND / OR / WITHOUT pills ----
+
+  function createTermInput(topicNumber, termNumber, value, placeholder) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'historybot-term';
+    input.maxLength = 80;
+    input.autocomplete = 'off';
+    input.placeholder = placeholder;
+    input.value = value;
+    if (termNumber === 1) input.id = `historybot-topic-${topicNumber}`;
+    else input.setAttribute('aria-label', `Topic ${topicNumber} term ${termNumber}`);
+    return input;
+  }
+
+  function createPill(operator, row) {
+    const pill = document.createElement('span');
+    pill.className = `bool-pill historybot-pill ${operator.toLowerCase()}`; // .or / .without colors come from the search bar
+    pill.dataset.op = operator;
+    pill.append(document.createTextNode(operator));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'historybot-pill-remove';
+    remove.setAttribute('aria-label', `Remove ${operator} term`);
+    remove.textContent = '×';
+    remove.addEventListener('click', () => {
+      const next = pill.nextElementSibling;
+      if (next?.matches('input')) next.remove();
+      pill.remove();
+      updateTermOps(row);
+      row.querySelector('.historybot-terms input:last-of-type')?.focus();
+    });
+    pill.append(remove);
+    return pill;
+  }
+
+  function addTerm(row, operator) {
+    const terms = row.querySelector('.historybot-terms');
+    const inputs = terms.querySelectorAll('input');
+    if (inputs.length >= MAX_TERMS) return;
+    if (operator === 'OR' && terms.querySelectorAll('.historybot-pill.or').length >= MAX_OR) return;
+    const input = createTermInput(Number(row.dataset.topic), inputs.length + 1, '', operator === 'WITHOUT' ? 'Exclude…' : 'Term…');
+    terms.append(createPill(operator, row), input);
+    updateTermOps(row);
+    input.focus();
+  }
+
+  function updateTermOps(row) {
+    const terms = row.querySelector('.historybot-terms');
+    const inputs = [...terms.querySelectorAll('input')];
+    const ops = row.querySelector('.historybot-term-ops');
+    ops.hidden = !inputs.some(input => input.value.trim());
+    const orCount = terms.querySelectorAll('.historybot-pill.or').length;
+    ops.querySelectorAll('button').forEach(button => {
+      button.disabled = inputs.length >= MAX_TERMS || (button.dataset.op === 'OR' && orCount >= MAX_OR);
+    });
+  }
+
   function addTopicRow(value = '') {
-    if (elements['historybot-topic-list'].children.length >= 5) return;
+    if (elements['historybot-topic-list'].children.length >= MAX_TOPICS) return;
     const number = nextTopicId++;
     const row = document.createElement('div');
     row.className = 'historybot-topic-row';
+    row.dataset.topic = String(number);
     const label = document.createElement('label');
     label.htmlFor = `historybot-topic-${number}`;
     label.textContent = `Topic ${number}`;
-    const input = document.createElement('input');
-    input.id = `historybot-topic-${number}`;
-    input.type = 'text';
-    input.maxLength = 80;
-    input.placeholder = number === 1 ? 'e.g. historybot' : 'Comparison topic';
-    input.value = value;
-    row.append(label, input);
+    const terms = document.createElement('div');
+    terms.className = 'historybot-terms';
+    terms.append(createTermInput(number, 1, value, number === 1 ? 'e.g. historybot' : 'Comparison topic'));
+    terms.addEventListener('input', () => updateTermOps(row));
+    const ops = document.createElement('div');
+    ops.className = 'historybot-term-ops';
+    ops.hidden = true;
+    OPERATORS.forEach(operator => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.op = operator;
+      button.textContent = `+ ${operator}`;
+      button.title = `Add a term this topic must ${operator === 'WITHOUT' ? 'not contain' : operator === 'OR' ? 'contain instead' : 'also contain'}`;
+      button.addEventListener('click', () => addTerm(row, operator));
+      ops.append(button);
+    });
+    row.append(label, terms, ops);
     if (elements['historybot-topic-list'].children.length > 0) {
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -63,13 +142,24 @@
       row.append(remove);
     }
     elements['historybot-topic-list'].append(row);
-    elements['historybot-add-topic'].disabled = elements['historybot-topic-list'].children.length >= 5;
-    if (value) input.focus();
+    elements['historybot-add-topic'].disabled = elements['historybot-topic-list'].children.length >= MAX_TOPICS;
+    updateTermOps(row);
+    if (value) terms.querySelector('input').focus();
   }
 
   function removeTopicRow(row) {
     row.remove();
     elements['historybot-add-topic'].disabled = false;
+  }
+
+  // One topic -> { terms: [{ value, operator }] } in visual order, like the search bar's segments.
+  function collectTopics() {
+    return [...elements['historybot-topic-list'].querySelectorAll('.historybot-terms')].map(terms => ({
+      terms: [...terms.children].filter(element => element.matches('input')).map(input => ({
+        value: input.value,
+        operator: input.previousElementSibling?.classList.contains('historybot-pill') ? input.previousElementSibling.dataset.op : 'AND',
+      })),
+    }));
   }
 
   function openHistorybot() {
@@ -92,12 +182,11 @@
   }
 
   function collectRequest() {
-    const topics = [...elements['historybot-topic-list'].querySelectorAll('input[type="text"]')].map(input => input.value);
     const role = document.querySelector('input[name="historybot-role"]:checked')?.value || 'both';
     const roles = role === 'both' ? ['user', 'assistant'] : [role];
     const custom = document.querySelector('input[name="historybot-date-mode"]:checked')?.value === 'custom';
     return {
-      topics,
+      topics: collectTopics(),
       roles,
       dateRange: custom ? {
         start: elements['historybot-date-start'].value || null,
@@ -134,6 +223,7 @@
       state.calendarTopicId = payload.query.topics[0]?.id || null;
       state.calendarYear = latestYear(payload.meta.appliedRange);
       if (payload.query.isAllActivity && state.measure === 'mentions') state.measure = 'messages';
+      closeDrill();
       elements['historybot-status'].textContent = `Counted ${payload.meta.eligibleMessages.toLocaleString()} eligible messages in ${payload.meta.durationMs} ms.`;
       renderHistorybot();
     } catch (error) {
@@ -199,11 +289,22 @@
     if (state.view === 'calendar') renderCalendarChart();
     else renderFrequencyChart();
     elements['historybot-save-png'].disabled = false;
+    elements['historybot-browse'].hidden = !state.canDrill;
+    renderDrill();
   }
 
   function ensureChart() {
     if (!window.echarts) throw new Error('The local chart library is unavailable. Restart Split and try again.');
-    if (!state.chart) state.chart = window.echarts.init(elements['historybot-chart'], null, { renderer: 'canvas' });
+    if (state.chart) return;
+    state.chart = window.echarts.init(elements['historybot-chart'], null, { renderer: 'canvas' });
+    state.chart.on('click', params => {
+      if (state.view !== 'calendar' || params.componentType !== 'series' || !state.canDrill) return;
+      const day = params.value[0];
+      openDrill({ topicId: state.calendarTopicId, start: day, end: day, label: day });
+    });
+    state.chart.getZr().on('click', event => {
+      if (state.view === 'frequency' && state.canDrill) drillFromFrequency([event.offsetX, event.offsetY]);
+    });
   }
 
   function roleLabel() {
@@ -226,12 +327,24 @@
     return state.response.series.map(series => series.label).join(' vs ');
   }
 
+  function titleWidth() {
+    return Math.max(240, elements['historybot-chart'].clientWidth - 48);
+  }
+
   function resolvedGranularity() {
     return state.granularity === 'auto' ? state.response.meta.recommendedGranularity : state.granularity;
   }
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
+  }
+
+  function clickHint() {
+    return state.canDrill ? ' Click the chart to list its conversations.' : '';
+  }
+
+  function plural(count, noun) {
+    return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`;
   }
 
   function buildFrequencyOption(granularity) {
@@ -257,7 +370,7 @@
         subtext: subtitle(granularity[0].toUpperCase() + granularity.slice(1)),
         left: 16,
         top: 8,
-        textStyle: { color: '#D8E2EA', fontFamily: 'Georgia', fontSize: 20, fontWeight: 400 },
+        textStyle: { color: '#D8E2EA', fontFamily: 'Georgia', fontSize: 20, fontWeight: 400, width: titleWidth(), overflow: 'truncate' },
         subtextStyle: { color: '#8E9AA5', fontSize: 11 },
       },
       legend: { top: 62, left: 12, right: 12, textStyle: { color: '#D8E2EA' }, type: 'scroll' },
@@ -298,7 +411,7 @@
     const granularity = resolvedGranularity();
     state.chart.setOption(buildFrequencyOption(granularity), true);
     const total = state.response.series.reduce((sum, series) => sum + series.totals[state.measure], 0);
-    elements['historybot-summary'].textContent = `${total.toLocaleString()} ${MEASURE_LABELS[state.measure].toLowerCase()} across ${state.response.series.length} ${state.response.series.length === 1 ? 'series' : 'series'}.`;
+    elements['historybot-summary'].textContent = `${total.toLocaleString()} ${MEASURE_LABELS[state.measure].toLowerCase()} across ${state.response.series.length} series.${clickHint()}`;
     elements['historybot-chart'].setAttribute('aria-label', `${frequencyTitle()}. ${subtitle(granularity)}. Total ${total}.`);
   }
 
@@ -329,7 +442,7 @@
         subtext: subtitle(String(state.calendarYear)),
         left: 16,
         top: 8,
-        textStyle: { color: '#D8E2EA', fontFamily: 'Georgia', fontSize: 20, fontWeight: 400 },
+        textStyle: { color: '#D8E2EA', fontFamily: 'Georgia', fontSize: 20, fontWeight: 400, width: titleWidth(), overflow: 'truncate' },
         subtextStyle: { color: '#8E9AA5', fontSize: 11 },
       },
       tooltip: {
@@ -389,7 +502,7 @@
     state.chart.setOption(buildCalendarOption(series), true);
     const yearBuckets = series.buckets.day.filter(bucket => bucket.start.startsWith(`${state.calendarYear}-`));
     const total = yearBuckets.reduce((sum, bucket) => sum + bucket[state.measure], 0);
-    elements['historybot-summary'].textContent = `${total.toLocaleString()} ${MEASURE_LABELS[state.measure].toLowerCase()} for ${series.label} in ${state.calendarYear}.`;
+    elements['historybot-summary'].textContent = `${total.toLocaleString()} ${MEASURE_LABELS[state.measure].toLowerCase()} for ${series.label} in ${state.calendarYear}.${clickHint()}`;
     elements['historybot-chart'].setAttribute('aria-label', `Calendar for ${series.label} in ${state.calendarYear}. Total ${total} ${MEASURE_LABELS[state.measure].toLowerCase()}.`);
   }
 
@@ -400,11 +513,272 @@
     elements['historybot-empty'].textContent = message;
     elements['historybot-summary'].textContent = '';
     elements['historybot-save-png'].disabled = true;
+    elements['historybot-browse'].hidden = true;
+    closeDrill();
   }
 
   function renderError(message) {
     elements['historybot-error'].textContent = message || '';
     if (message) elements['historybot-status'].textContent = message;
+  }
+
+  // ---- Drill-down: the conversations behind a clicked bucket or the whole range ----
+
+  // Inclusive date window of one bucket, clamped to the applied range.
+  function bucketWindow(start, granularity) {
+    const applied = state.response.meta.appliedRange;
+    const date = new Date(`${start}T00:00:00Z`);
+    if (granularity === 'day') date.setUTCDate(date.getUTCDate() + 1);
+    if (granularity === 'week') date.setUTCDate(date.getUTCDate() + 7);
+    if (granularity === 'month') date.setUTCMonth(date.getUTCMonth() + 1);
+    if (granularity === 'year') date.setUTCFullYear(date.getUTCFullYear() + 1);
+    date.setUTCDate(date.getUTCDate() - 1);
+    const end = date.toISOString().slice(0, 10);
+    const labels = { day: start, week: `Week of ${start}`, month: start.slice(0, 7), year: start.slice(0, 4) };
+    return { start: start > applied.start ? start : applied.start, end: end < applied.end ? end : applied.end, label: labels[granularity] };
+  }
+
+  // Nearest bucket to a click anywhere in the plot area; lines are too thin to hit directly.
+  function drillFromFrequency(point) {
+    if (!state.response?.meta.appliedRange || !state.chart.containPixel('grid', point)) return;
+    const granularity = resolvedGranularity();
+    let best = null;
+    let bestDistance = Infinity;
+    for (const bucket of state.response.series[0].buckets[granularity]) {
+      const distance = Math.abs(state.chart.convertToPixel({ xAxisIndex: 0 }, bucket.start) - point[0]);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = bucket;
+      }
+    }
+    if (best) openDrill({ topicId: state.drill?.topicId || state.response.series[0].id, ...bucketWindow(best.start, granularity) });
+  }
+
+  function browseAll() {
+    const applied = state.response?.meta.appliedRange;
+    if (!applied) return;
+    if (state.view === 'calendar') {
+      const [start, end] = calendarRange();
+      return openDrill({ topicId: state.calendarTopicId, start, end, label: String(state.calendarYear) });
+    }
+    openDrill({ topicId: state.drill?.topicId || state.response.series[0].id, start: applied.start, end: applied.end, label: `${applied.start} to ${applied.end}` });
+  }
+
+  async function openDrill(target) {
+    const response = state.response;
+    if (!response?.meta.appliedRange) return;
+    const topic = response.query.topics.find(item => item.id === target.topicId) || response.query.topics[0];
+    state.drill?.controller?.abort();
+    const controller = new AbortController();
+    state.drill = { ...target, topicId: topic.id, topic, response: null, results: null, error: '', controller };
+    renderDrill();
+    elements['historybot-drilldown'].scrollIntoView({ block: 'nearest', behavior: state.reducedMotion ? 'auto' : 'smooth' });
+    try {
+      const result = await fetch('/api/historybot/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: response.query.isAllActivity ? null : { terms: topic.terms },
+          roles: response.query.roles,
+          dateRange: { start: target.start, end: target.end },
+        }),
+        signal: controller.signal,
+      });
+      const payload = await result.json().catch(() => ({}));
+      if (!result.ok) throw new Error(payload.error?.message || 'Historybot could not list these conversations.');
+      if (state.drill?.controller !== controller) return;
+      state.drill.response = payload;
+    } catch (error) {
+      if (error.name === 'AbortError' || state.drill?.controller !== controller) return;
+      state.drill.error = error.message;
+    }
+    renderDrill();
+  }
+
+  function closeDrill() {
+    state.drill?.controller?.abort();
+    state.drill = null;
+    renderDrill();
+  }
+
+  function setDrillNote(text) {
+    elements['historybot-drilldown-note'].textContent = text;
+  }
+
+  function renderDrillTopics() {
+    const wrap = elements['historybot-drilldown-topics'];
+    wrap.replaceChildren();
+    const topics = state.response.query.topics;
+    wrap.hidden = topics.length <= 1;
+    topics.forEach((topic, index) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'historybot-chip';
+      chip.textContent = topic.label;
+      chip.title = topic.label;
+      chip.style.setProperty('--chip-color', TOPIC_COLORS[index]);
+      chip.setAttribute('aria-pressed', String(topic.id === state.drill.topicId));
+      chip.addEventListener('click', () => {
+        const drill = state.drill;
+        if (drill && topic.id !== drill.topicId) openDrill({ topicId: topic.id, start: drill.start, end: drill.end, label: drill.label });
+      });
+      wrap.append(chip);
+    });
+  }
+
+  function renderDrillEntry(entry, isAllActivity) {
+    const item = document.createElement('li');
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'historybot-conv';
+    const title = document.createElement('span');
+    title.className = 'historybot-conv-title';
+    title.textContent = entry.title || entry.file || `Conversation ${entry.conversation}`;
+    const meta = document.createElement('span');
+    meta.className = 'historybot-conv-meta';
+    const when = entry.firstMatchDate === entry.lastMatchDate ? entry.firstMatchDate : `${entry.firstMatchDate} to ${entry.lastMatchDate}`;
+    meta.textContent = isAllActivity
+      ? `${when} · ${plural(entry.messages, 'message')}`
+      : `${when} · ${plural(entry.messages, 'message')} · ${plural(entry.mentions, 'mention')}`;
+    open.append(title, meta);
+    open.addEventListener('click', () => openInViewer(entry));
+    const drawer = document.createElement('button');
+    drawer.type = 'button';
+    drawer.className = 'historybot-conv-drawer';
+    drawer.title = 'Open in slideout drawer';
+    drawer.setAttribute('aria-label', `Open ${title.textContent} in a slideout drawer`);
+    drawer.textContent = '⇱';
+    drawer.addEventListener('click', () => openInDrawer(entry));
+    item.append(open, drawer);
+    return item;
+  }
+
+  function renderDrill() {
+    const panel = elements['historybot-drilldown'];
+    const drill = state.drill;
+    panel.hidden = !drill;
+    if (!drill) return;
+    const response = drill.response;
+    elements['historybot-drilldown-title'].textContent = drill.label;
+    const prefix = `${drill.topic.label} · ${roleLabel()}`;
+    elements['historybot-drilldown-meta'].textContent = response
+      ? `${prefix} · ${plural(response.meta.totalConversations, 'conversation')} · ${plural(response.meta.totalMessages, 'message')}${response.query.isAllActivity ? '' : ` · ${plural(response.meta.totalMentions, 'mention')}`}`
+      : prefix;
+    renderDrillTopics();
+    elements['historybot-drilldown-list'].replaceChildren();
+    panel.setAttribute('aria-busy', String(!response && !drill.error));
+    if (drill.error) return setDrillNote(drill.error);
+    if (!response) return setDrillNote('Finding conversations…');
+    if (!response.conversations.length) return setDrillNote('No conversations match in this interval.');
+    setDrillNote(response.meta.returned < response.meta.totalConversations
+      ? `Showing the ${response.meta.returned} busiest of ${response.meta.totalConversations.toLocaleString()} conversations. Narrow the interval to see the rest.`
+      : 'Select a conversation to open it in the viewer with its matches highlighted.');
+    response.conversations.forEach(entry => elements['historybot-drilldown-list'].append(renderDrillEntry(entry, response.query.isAllActivity)));
+  }
+
+  // ---- Hand-off to the viewer in index.html (showSearchResults, buildConversationMatches, openDrawer) ----
+
+  function viewerAvailable() {
+    return typeof window.showSearchResults === 'function' && typeof window.buildConversationMatches === 'function';
+  }
+
+  async function fetchConversation(entry) {
+    const response = await fetch(`/${entry.file}`);
+    if (!response.ok) throw new Error(`Could not load ${entry.file}.`);
+    const data = await response.json();
+    const list = Array.isArray(data) ? data : [data];
+    return list[entry.indexInFile ?? 0] || list[0] || null;
+  }
+
+  // Search-bar style groups from a topic's terms; null for All activity (every message counts).
+  function highlightGroups(topic) {
+    if (!topic.terms?.length) return null;
+    const groups = [{ includeTerms: [], excludeTerms: [] }];
+    topic.terms.forEach((term, index) => {
+      if (term.operator === 'OR' && index > 0) groups.push({ includeTerms: [], excludeTerms: [] });
+      (term.operator === 'WITHOUT' ? groups.at(-1).excludeTerms : groups.at(-1).includeTerms).push(term.value.toLowerCase());
+    });
+    return groups;
+  }
+
+  function localDateFormatter(timeZone) {
+    let formatter;
+    try {
+      formatter = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch {
+      formatter = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+    return seconds => {
+      if (!Number.isFinite(seconds)) return null;
+      const parts = Object.fromEntries(formatter.formatToParts(new Date(seconds * 1000)).map(part => [part.type, part.value]));
+      return `${parts.year}-${parts.month}-${parts.day}`;
+    };
+  }
+
+  // Only the messages the statistic counted: selected roles, dated inside the window (same fallback as the index).
+  function messageAcceptor(drill) {
+    const roles = new Set(drill.response.query.roles);
+    const range = drill.response.meta.appliedRange || drill;
+    const toLocalDate = localDateFormatter(state.response.meta.timezone);
+    return (message, conversation) => {
+      if (!roles.has(message.author?.role)) return false;
+      const date = toLocalDate(Number.isFinite(message.create_time) ? message.create_time : conversation.create_time);
+      return Boolean(date) && date >= range.start && date <= range.end;
+    };
+  }
+
+  async function loadDrillResults(drill) {
+    if (drill.results) return drill.results;
+    const groups = highlightGroups(drill.topic);
+    const accept = messageAcceptor(drill);
+    const results = await Promise.all(drill.response.conversations.map(async entry => {
+      try {
+        const conversation = await fetchConversation(entry);
+        if (!conversation) return null;
+        const matches = window.buildConversationMatches(conversation, groups, message => accept(message, conversation));
+        return {
+          file: entry.file,
+          indexInFile: entry.indexInFile,
+          title: conversation.title || entry.title || entry.file,
+          conversation,
+          matches,
+          fullData: conversation,
+          create_time: conversation.create_time || null,
+        };
+      } catch (error) {
+        console.error('Historybot could not load', entry.file, error);
+        return null;
+      }
+    }));
+    drill.results = results.filter(Boolean);
+    return drill.results;
+  }
+
+  async function openInViewer(entry) {
+    const drill = state.drill;
+    if (!drill?.response) return;
+    if (!viewerAvailable()) return setDrillNote('The conversation viewer is unavailable on this page.');
+    setDrillNote('Loading conversations into the viewer…');
+    const results = await loadDrillResults(drill);
+    if (state.drill !== drill) return;
+    if (!results.length) return setDrillNote('None of these conversations could be loaded.');
+    const shown = window.showSearchResults(results, drill.topic.label);
+    const index = shown.findIndex(result => result.file === entry.file && result.indexInFile === entry.indexInFile);
+    if (index > 0 && typeof window.selectConversationByIndex === 'function') window.selectConversationByIndex(index);
+    setDrillNote('Opened in the viewer. Use the search arrows to step through matches; reopen Historybot from the main image.');
+    closeHistorybot();
+  }
+
+  async function openInDrawer(entry) {
+    if (typeof window.openDrawer !== 'function') return setDrillNote('The slideout drawer is unavailable on this page.');
+    try {
+      const conversation = await fetchConversation(entry);
+      if (!conversation) throw new Error('That conversation is missing from its file.');
+      window.openDrawer(conversation, conversation.title || entry.title);
+      closeHistorybot();
+    } catch (error) {
+      setDrillNote(error.message);
+    }
   }
 
   function slugify(value) {
@@ -430,6 +804,7 @@
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.ready) throw new Error(payload.error?.message || "Historybot's local index is unavailable.");
       const range = payload.sourceRange;
+      state.canDrill = Boolean(payload.messageSearch);
       elements['historybot-date-start'].min = range.start;
       elements['historybot-date-start'].max = range.end;
       elements['historybot-date-end'].min = range.start;
@@ -461,6 +836,8 @@
     elements['historybot-calendar-topic'].addEventListener('change', event => { state.calendarTopicId = event.target.value; renderHistorybot(); });
     elements['historybot-calendar-year'].addEventListener('change', event => { state.calendarYear = event.target.value; renderHistorybot(); });
     elements['historybot-save-png'].addEventListener('click', saveCurrentChartPng);
+    elements['historybot-browse'].addEventListener('click', browseAll);
+    elements['historybot-drilldown-close'].addEventListener('click', closeDrill);
     window.addEventListener('resize', () => state.chart?.resize());
     resizeObserver = new ResizeObserver(() => {
       if (!elements.historybot.hidden) state.chart?.resize();

@@ -693,7 +693,7 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
           <legend>Topics</legend>
           <div id="historybot-topic-list"></div>
           <button id="historybot-add-topic" class="historybot-text-button" type="button">+ Compare another topic</button>
-          <p class="historybot-hint">Leave the first topic blank to chart all activity.</p>
+          <p class="historybot-hint">Leave the first topic blank to chart all activity. Type a term to add AND, OR, or WITHOUT terms, like the search bar.</p>
         </fieldset>
 
         <fieldset>
@@ -748,10 +748,25 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
           <label id="historybot-calendar-year-wrap" hidden>Year <select id="historybot-calendar-year"></select></label>
           <button id="historybot-save-png" type="button" disabled>Save PNG</button>
         </div>
-        <p id="historybot-summary"></p>
+        <div class="historybot-summary-row">
+          <p id="historybot-summary"></p>
+          <button id="historybot-browse" class="historybot-text-button" type="button" hidden>Show conversations</button>
+        </div>
         <div id="historybot-chart" role="img" aria-label="Historybot infographic" hidden></div>
         <div id="historybot-empty">Add a topic—or leave it blank for all activity—then create an infographic.</div>
         <div id="historybot-error" role="alert"></div>
+        <section id="historybot-drilldown" hidden aria-labelledby="historybot-drilldown-title" aria-busy="false">
+          <header class="historybot-drilldown-header">
+            <div>
+              <h3 id="historybot-drilldown-title"></h3>
+              <p id="historybot-drilldown-meta"></p>
+            </div>
+            <div id="historybot-drilldown-topics" role="group" aria-label="Topic to list"></div>
+            <button id="historybot-drilldown-close" type="button" aria-label="Close conversation list">&times;</button>
+          </header>
+          <p id="historybot-drilldown-note"></p>
+          <ol id="historybot-drilldown-list"></ol>
+        </section>
       </section>
     </div>
   </section>
@@ -1197,6 +1212,74 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
       }
     }
 
+    // Per-message matches for one conversation. searchGroups: [{ includeTerms, excludeTerms }] (lowercase);
+    // null matches every message with no highlights. accept(message) optionally narrows which messages count.
+    // Also used by historybot.js to open chart statistics in the viewer.
+    function buildConversationMatches(conv, searchGroups, accept = null) {
+      const matches = [];
+      getMessagesInOrder(conv).forEach((msg, msgIndex) => {
+        if (!msg.message?.content?.parts?.length) return;
+        if (accept && !accept(msg.message)) return;
+        const textParts = getMessageTextParts(msg.message);
+        if (textParts.length === 0) return;
+        if (searchGroups === null) {
+          matches.push({ messageIndex: msgIndex, indices: [] });
+          return;
+        }
+        const lowerMessage = textParts.join('\n').toLowerCase();
+        const matchingGroups = searchGroups.filter(group =>
+          group.includeTerms.length > 0 &&
+          group.includeTerms.every(term => lowerMessage.includes(term)) &&
+          group.excludeTerms.every(term => !lowerMessage.includes(term))
+        );
+        if (matchingGroups.length === 0) return;
+
+        const termsToHighlight = [...new Set(matchingGroups.flatMap(group => group.includeTerms))];
+        const matchedIndices = [];
+        textParts.forEach((part, partIndex) => {
+          const lowerPart = part.toLowerCase();
+          for (const term of termsToHighlight) {
+            let startPos = 0;
+            while (true) {
+              const foundAt = lowerPart.indexOf(term, startPos);
+              if (foundAt === -1) break;
+              matchedIndices.push({ partIndex, startPos: foundAt, length: term.length });
+              startPos = foundAt + term.length;
+            }
+          }
+        });
+        if (matchedIndices.length > 0) {
+          matches.push({ messageIndex: msgIndex, indices: matchedIndices });
+        }
+      });
+      return matches;
+    }
+
+    // Show prepared results ({ file, title, conversation, matches, create_time }) in the sidebar, newest first,
+    // and open the first one. Returns the sorted list that now backs search navigation.
+    function showSearchResults(results, label) {
+      searchResults = results.slice().sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
+      flatMatches = [];
+      searchResults.forEach((result, fileIndex) => {
+        result.matches.forEach(matchObj => {
+          flatMatches.push({
+            fileIndex,
+            messageIndex: matchObj.messageIndex,
+            indices: matchObj.indices,
+          });
+        });
+      });
+      currentMatchGlobalIndex = -1;
+      currentConversationIndex = -1;
+      if (typeof label === 'string') currentSearchTerm = label;
+      progressContainer.style.display = 'none';
+      searchButtons.style.display = 'flex';
+      renderConversationTabs(searchResults, true);
+      selectConversationByIndex(0, flatMatches.length ? 0 : null);
+      updateSearchCounter();
+      return searchResults;
+    }
+
     // Boolean search with complex payload
     async function performBooleanSearch(payload) {
       searchResults = [];
@@ -1257,38 +1340,7 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
             let convArray = Array.isArray(convData) ? convData : [convData];
 
             convArray.forEach((conv) => {
-              const messages = getMessagesInOrder(conv);
-              const matches = [];
-              messages.forEach((msg, msgIndex) => {
-                if (!msg.message?.content?.parts?.length) return;
-                const textParts = getMessageTextParts(msg.message);
-                if (textParts.length === 0) return;
-                const lowerMessage = textParts.join('\n').toLowerCase();
-                const matchingGroups = searchGroups.filter(group =>
-                  group.includeTerms.length > 0 &&
-                  group.includeTerms.every(term => lowerMessage.includes(term)) &&
-                  group.excludeTerms.every(term => !lowerMessage.includes(term))
-                );
-                if (matchingGroups.length === 0) return;
-
-                const termsToHighlight = [...new Set(matchingGroups.flatMap(group => group.includeTerms))];
-                const matchedIndices = [];
-                textParts.forEach((part, partIndex) => {
-                  const lowerPart = part.toLowerCase();
-                  for (const term of termsToHighlight) {
-                    let startPos = 0;
-                    while (true) {
-                      const foundAt = lowerPart.indexOf(term, startPos);
-                      if (foundAt === -1) break;
-                      matchedIndices.push({ partIndex, startPos: foundAt, length: term.length });
-                      startPos = foundAt + term.length;
-                    }
-                  }
-                });
-                if (matchedIndices.length > 0) {
-                  matches.push({ messageIndex: msgIndex, indices: matchedIndices });
-                }
-              });
+              const matches = buildConversationMatches(conv, searchGroups);
               if (matches.length > 0) {
                 searchResults.push({
                   file: result.file,
@@ -1311,21 +1363,7 @@ left:33%;    filter:invert(1)contrast(.7)drop-shadow(10px 10px 20px transparent)
           return;
         }
 
-        searchResults.sort((a, b) => (b.create_time || 0) - (a.create_time || 0));
-
-        flatMatches = [];
-        searchResults.forEach((result, fileIndex) => {
-          result.matches.forEach(matchObj => {
-            flatMatches.push({
-              fileIndex,
-              messageIndex: matchObj.messageIndex,
-              indices: matchObj.indices,
-            });
-          });
-        });
-
-        renderConversationTabs(searchResults, true);
-        selectConversationByIndex(0, 0);
+        showSearchResults(searchResults);
 
       } catch (e) {
         console.error('Boolean search error', e);

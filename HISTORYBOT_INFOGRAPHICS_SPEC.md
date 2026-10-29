@@ -56,7 +56,9 @@ These decisions remove ambiguity for the implementation agent.
 | Topic count | Zero to five topic phrases. Zero means “All activity.” |
 | Comparison | Each topic becomes an independent line series. A message matching two topics counts in both series. |
 | Role filter | One segmented control: `Both` (default), `You`, or `Assistant`. |
-| Search meaning | Case-insensitive literal substring matching. No regex, stemming, synonyms, semantic search, or Boolean syntax. Punctuation and internal whitespace remain significant. |
+| Search meaning | Case-insensitive literal substring matching per term. No regex, stemming, synonyms, or semantic search. Punctuation and internal whitespace remain significant. |
+| Boolean topics | A topic is a strip of terms joined by `AND`, `OR`, and `WITHOUT` pills, exactly like the search bar. `OR` splits the topic into groups (at most two `OR`s); a message matches when any group has every `AND` term and none of its `WITHOUT` terms. At most eight terms per topic. Mentions count every positive term's occurrences in a matching message (minimum one). |
+| Drill-down | Clicking a frequency interval, a calendar day, or **Show conversations** lists the conversations behind that statistic (`POST /api/historybot/conversations`). Selecting one opens it in the main viewer as a search-result set with the counted messages highlighted; a second button opens it in a slideout drawer. |
 | Default measure | Matching messages: a message contributes at most one count to a topic, even if the phrase occurs repeatedly. |
 | Other measures | Mentions: every non-overlapping literal occurrence. Conversations: unique conversations containing a match in the displayed bucket. |
 | Date source | `message.create_time`; fall back to the parent conversation's `create_time`; exclude only if both are absent. |
@@ -443,11 +445,18 @@ Request:
 }
 ```
 
+A topic entry is either a plain string or a term list in visual order, mirroring the search bar's segments:
+
+```json
+{ "terms": [{ "value": "historybot" }, { "value": "history bot", "operator": "OR" }, { "value": "bug", "operator": "WITHOUT" }] }
+```
+
 Validation rules:
 
 - `topics` must be an array with no more than five entries.
-- Trim topics, remove blank entries, and deduplicate case-insensitively while preserving the first label's casing.
-- Each retained topic must be 1–80 characters after trimming.
+- A plain string is one `AND` term. A term's `operator` is `AND` (default), `OR`, or `WITHOUT`; blank terms are skipped. At most eight terms and two `OR`s per topic.
+- The topic label is the terms joined in order (`historybot OR history bot WITHOUT bug`); deduplicate topics by that label case-insensitively while preserving the first label's casing.
+- Each retained term must be 1–80 characters after trimming.
 - Zero retained topics is valid and produces `All activity`.
 - `roles` must resolve to `['user']`, `['assistant']`, or both; no other role is accepted.
 - `dateRange.start` and `dateRange.end` must either both be `null`/absent or both be valid `YYYY-MM-DD` strings.
@@ -481,11 +490,13 @@ Successful response, `200`:
     "topics": [
       {
         "id": "topic-1",
-        "label": "historybot"
+        "label": "historybot",
+        "terms": [{ "value": "historybot", "operator": "AND" }]
       },
       {
         "id": "topic-2",
-        "label": "calendar plot"
+        "label": "calendar plot",
+        "terms": [{ "value": "calendar plot", "operator": "AND" }]
       }
     ]
   },
@@ -532,6 +543,61 @@ Structured error, `400`:
 ```
 
 Use stable codes for invalid topics, invalid roles, invalid date range, unavailable cache, and query failure. The UI displays the message and keeps the user's form values.
+
+### `POST /api/historybot/conversations`
+
+Purpose: the drill-down behind one statistic. Same validation as infographics, for one topic and the clicked window.
+
+Request:
+
+```json
+{
+  "topic": { "terms": [{ "value": "historybot" }] },
+  "roles": ["user", "assistant"],
+  "dateRange": { "start": "2024-03-03", "end": "2024-03-09" },
+  "limit": 100
+}
+```
+
+`topic` may be a plain string, a term list, or `null` for All activity. `limit` defaults to 100 and may not exceed 500 (`INVALID_LIMIT`). Requires Historybot metadata schema 2 (the `conversations` array); otherwise respond `503` with `HISTORYBOT_CACHE_OUTDATED`.
+
+Successful response, `200`:
+
+```json
+{
+  "meta": {
+    "timezone": "America/New_York",
+    "generatedAt": "2026-07-15T20:34:12.000Z",
+    "appliedRange": { "start": "2024-03-03", "end": "2024-03-09" },
+    "totalConversations": 12,
+    "totalMessages": 34,
+    "totalMentions": 41,
+    "returned": 12,
+    "limit": 100,
+    "durationMs": 9.4
+  },
+  "query": {
+    "roles": ["user", "assistant"],
+    "isAllActivity": false,
+    "topic": { "id": "topic-1", "label": "historybot", "terms": [{ "value": "historybot", "operator": "AND" }] }
+  },
+  "conversations": [
+    {
+      "conversation": 4821,
+      "title": "Planning the Historybot panel",
+      "file": "history/conversations-4821.json",
+      "indexInFile": 0,
+      "conversationDate": "2024-03-04",
+      "firstMatchDate": "2024-03-04",
+      "lastMatchDate": "2024-03-08",
+      "messages": 9,
+      "mentions": 12
+    }
+  ]
+}
+```
+
+Conversations are sorted by matching messages, then latest match date, and cut at `limit`. Message text never leaves the server; the client re-fetches the conversation file and highlights the counted messages itself (same role and local-date filter as the index).
 
 ## 10. Historybot markup and interaction
 
@@ -599,6 +665,11 @@ Every input needs a visible `<label>` or `<legend>`. Every icon-only button need
 - Removing a row does not auto-submit.
 - Pressing Enter in a topic field submits the form.
 - Preserve the user's entered casing for labels and titles.
+- Once a row has text, `+ AND`, `+ OR`, and `+ WITHOUT` buttons appear beneath it. Each adds a pill (reusing the search bar's `.bool-pill` colors) and a new term input after it; the pill's remove button deletes the pill and that input. `OR` is disabled after two; all three after eight terms.
+
+### Drill-down list
+
+`#historybot-drilldown` sits under the chart inside the output column and stays hidden until a statistic is clicked. It shows the interval label, topic/role/count summary, a topic chip row when several series exist, a note line, and an `<ol>` of conversations (title, match dates, counts). Each entry has an open button (main viewer) and a slideout-drawer button. Opening closes the panel; reopening Historybot keeps the chart and list. The list is disabled when `/api/historybot/status` reports `messageSearch: false`.
 
 ### Opening and closing
 
@@ -904,8 +975,8 @@ The feature is complete only when all statements are true:
 Do not add any of the following while implementing this specification:
 
 - LLM-written narratives or chart recommendations
-- semantic search, stemming, fuzzy search, regex, or Boolean topic grammar
-- click-through from a chart point into matching messages
+- semantic search, stemming, fuzzy search, regex, or a typed Boolean grammar (operators are pills, as in the search bar)
+- returning message text or snippets from the analytics routes (click-through re-fetches the conversation file client-side)
 - pie, bar, word cloud, network, or map charts
 - CSV/PDF export or clipboard image copying
 - saved dashboards or query history

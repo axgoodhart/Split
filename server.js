@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { ensureCache, loadCache } = require('./build-search-cache');
-const { queryInfographics } = require('./historybot-analytics');
+const { queryInfographics, queryConversations } = require('./historybot-analytics');
 const { searchMessages, messageContext } = require('./message-search');
 
 const app = express();
@@ -101,25 +101,43 @@ app.get('/api/messages/context', (req, res) => {
   }
 });
 
+function sendHistorybotUnavailable(res) {
+  res.status(503).json({
+    error: {
+      code: 'HISTORYBOT_CACHE_UNAVAILABLE',
+      message: "Historybot's local index is unavailable. Restart Split to rebuild it.",
+    },
+  });
+}
+
+function sendHistorybotError(res, error, fallback) {
+  const status = error.statusCode || 500;
+  res.status(status).json({
+    error: {
+      code: error.code || 'HISTORYBOT_QUERY_FAILED',
+      message: status === 500 ? fallback : error.message,
+    },
+  });
+}
+
 app.post('/api/historybot/infographics', (req, res) => {
-  if (!cache?.historyMeta) {
-    return res.status(503).json({
-      error: {
-        code: 'HISTORYBOT_CACHE_UNAVAILABLE',
-        message: "Historybot's local index is unavailable. Restart Split to rebuild it.",
-      },
-    });
-  }
+  if (!cache?.historyMeta) return sendHistorybotUnavailable(res);
   try {
     res.json(queryInfographics(req.body, cache.text, cache.historyMeta));
   } catch (error) {
-    const status = error.statusCode || 500;
-    res.status(status).json({
-      error: {
-        code: error.code || 'HISTORYBOT_QUERY_FAILED',
-        message: status === 500 ? 'Historybot could not finish this infographic. Try again.' : error.message,
-      },
-    });
+    sendHistorybotError(res, error, 'Historybot could not finish this infographic. Try again.');
+  }
+});
+
+// Drill-down: conversations behind one topic's count in a date window (see historybot-analytics.js)
+app.post('/api/historybot/conversations', (req, res) => {
+  if (!cache?.historyMeta) return sendHistorybotUnavailable(res);
+  try {
+    const payload = queryConversations(req.body, cache.text, cache.historyMeta);
+    for (const entry of payload.conversations) if (entry.file) entry.file = `${jsonRoutePrefix}/${entry.file}`;
+    res.json(payload);
+  } catch (error) {
+    sendHistorybotError(res, error, 'Historybot could not list these conversations. Try again.');
   }
 });
 

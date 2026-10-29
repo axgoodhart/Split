@@ -116,17 +116,73 @@
 .historybot-topic-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-areas: "label label" "terms remove" "ops ops";
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-.historybot-topic-row:first-child { grid-template-columns: 1fr; }
+.historybot-topic-row:first-child {
+  grid-template-columns: 1fr;
+  grid-template-areas: "label" "terms" "ops";
+}
 
-.historybot-topic-row label {
-  grid-column: 1 / -1;
+.historybot-topic-row > label {
+  grid-area: label;
   color: var(--hb-muted);
   font-size: 11px;
 }
+
+.historybot-terms {
+  grid-area: terms;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+#historybot .historybot-terms > input.historybot-term { flex: 1 1 110px; width: auto; min-height: 40px; }
+
+.historybot-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+  cursor: default;
+}
+
+.historybot-pill-remove {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: .75;
+}
+
+.historybot-pill-remove:hover { opacity: 1; }
+
+.historybot-term-ops { grid-area: ops; display: flex; gap: 4px; }
+.historybot-term-ops[hidden] { display: none; }
+.historybot-term-ops button {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 4px;
+  color: #9eb9e7;
+  background: transparent;
+  border: 1px dashed #35434e;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+.historybot-term-ops button:hover:not(:disabled) { color: var(--hb-ink); border-color: #5e8de7; }
 
 #historybot input[type="text"],
 #historybot input[type="date"],
@@ -146,6 +202,7 @@
 #historybot input[type="text"] { width: 100%; }
 
 .historybot-remove-topic {
+  grid-area: remove;
   width: 44px;
   height: 44px;
   color: #c7929c;
@@ -260,7 +317,10 @@
   cursor: pointer;
 }
 .historybot-tabs button[aria-selected="true"] { color: var(--hb-ink); border-color: #5e8de7; }
-#historybot-summary { min-height: 20px; margin: 13px 0 4px; color: #a9b6c0; font-size: 13px; }
+.historybot-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 13px 0 4px; }
+#historybot-summary { min-height: 20px; margin: 0; color: #a9b6c0; font-size: 13px; }
+#historybot-browse { flex-shrink: 0; min-height: 32px; padding: 0; font-size: 13px; white-space: nowrap; }
+#historybot-browse[hidden] { display: none; }
 #historybot-chart { width: 100%; min-height: 470px; }
 #historybot-chart[hidden] { display: none; }
 #historybot-empty,
@@ -279,6 +339,78 @@
 #historybot-error { min-height: 0; color: #e5a7b0; font-family: inherit; font-size: 14px; }
 #historybot-error:empty { display: none; }
 
+/* Drill-down: conversations behind a clicked statistic */
+#historybot-drilldown { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hb-rule); }
+#historybot-drilldown[hidden] { display: none; }
+.historybot-drilldown-header { display: flex; align-items: flex-start; gap: 12px; }
+.historybot-drilldown-header > div:first-child { flex: 1; min-width: 0; }
+#historybot-drilldown-title { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 400; }
+#historybot-drilldown-meta { margin: 4px 0 0; color: var(--hb-muted); font-size: 12px; }
+#historybot-drilldown-topics { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 46%; }
+#historybot-drilldown-topics[hidden] { display: none; }
+.historybot-chip {
+  --chip-color: #3b73e8;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 10px;
+  color: var(--hb-muted);
+  background: transparent;
+  border: 1px solid #35434e;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.historybot-chip[aria-pressed="true"] { color: var(--hb-ink); border-color: var(--chip-color); box-shadow: inset 0 0 0 1px var(--chip-color); }
+#historybot-drilldown-close {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--hb-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+#historybot-drilldown-close:hover { color: var(--hb-ink); border-color: var(--hb-rule); }
+#historybot-drilldown-note { margin: 10px 0 0; color: var(--hb-muted); font-size: 12px; }
+#historybot-drilldown-note:empty { display: none; }
+#historybot-drilldown-list { display: grid; gap: 4px; margin: 12px 0 0; padding: 0; list-style: none; }
+#historybot-drilldown-list li { display: grid; grid-template-columns: minmax(0, 1fr) 44px; }
+.historybot-conv {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  color: var(--hb-ink);
+  background: #111920;
+  border: 1px solid #1f2930;
+  border-radius: 5px 0 0 5px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.historybot-conv:hover { background: #182129; border-color: #35434e; }
+.historybot-conv-title { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.historybot-conv-meta { color: var(--hb-muted); font-size: 11px; }
+.historybot-conv-drawer {
+  min-height: 44px;
+  color: var(--hb-muted);
+  background: #111920;
+  border: 1px solid #1f2930;
+  border-left: 0;
+  border-radius: 0 5px 5px 0;
+  font-size: 16px;
+  cursor: pointer;
+}
+.historybot-conv-drawer:hover { color: var(--hb-ink); background: #182129; border-color: #35434e; }
+
 #historybot :focus-visible { outline: 3px solid var(--hb-focus); outline-offset: 2px; }
 
 @media (max-width: 760px) {
@@ -291,6 +423,9 @@
   .historybot-tabs { margin: 0; }
   .historybot-tabs button { flex: 1; }
   .historybot-toolbar select, #historybot-save-png { width: 100%; }
+  .historybot-summary-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .historybot-drilldown-header { flex-wrap: wrap; }
+  #historybot-drilldown-topics { order: 3; justify-content: flex-start; max-width: 100%; }
   #historybot-chart { min-height: 410px; }
 }
 
