@@ -59,6 +59,70 @@
     <div id="conversationView"></div>
   </div>
 
+  <dialog id="export-modal" aria-labelledby="export-modal-title">
+    <form id="export-form" method="dialog">
+      <header class="export-header">
+        <h2 id="export-modal-title">Export search results</h2>
+        <button type="button" id="export-close" class="drawer-close-btn" aria-label="Close export dialog">&times;</button>
+      </header>
+      <div class="export-body">
+        <div class="export-options">
+          <fieldset>
+            <legend>Messages</legend>
+            <label><input type="radio" name="export-roles" value="all" checked> All surfaced messages</label>
+            <label><input type="radio" name="export-roles" value="user-assistant"> Only user &amp; assistant</label>
+            <label><input type="radio" name="export-roles" value="user"> Only user</label>
+            <label><input type="radio" name="export-roles" value="assistant"> Only assistant</label>
+          </fieldset>
+          <fieldset>
+            <legend>Match length</legend>
+            <div class="export-row">
+              <label for="export-len-min">At least</label>
+              <input type="number" id="export-len-min" min="0" step="1" placeholder="0" inputmode="numeric">
+              <label for="export-len-max">at most</label>
+              <input type="number" id="export-len-max" min="1" step="1" placeholder="&infin;" inputmode="numeric">
+            </div>
+            <div class="export-row">
+              <select id="export-len-unit" aria-label="Length unit">
+                <option value="chars" selected>characters</option>
+                <option value="words">words</option>
+              </select>
+            </div>
+            <p class="export-hint">Applies to matched messages, before the per-conversation limit.</p>
+          </fieldset>
+          <fieldset>
+            <legend>Per conversation</legend>
+            <div class="export-row">
+              <label for="export-limit">No more than</label>
+              <input type="number" id="export-limit" min="1" step="1" placeholder="&infin;" inputmode="numeric">
+              <span>messages</span>
+            </div>
+            <p class="export-hint">Blank means no limit. Keeps the earliest matches in each conversation.</p>
+          </fieldset>
+          <fieldset>
+            <legend>Context</legend>
+            <label><input type="radio" name="export-context" value="none" checked> Matched message only</label>
+            <div class="export-row">
+              <label><input type="radio" name="export-context" value="around"> Surrounding</label>
+              <input type="number" id="export-context-n" min="1" step="1" value="1" inputmode="numeric" aria-label="Messages before and after">
+              <span>before &amp; after</span>
+            </div>
+            <label><input type="radio" name="export-context" value="full"> Full conversation</label>
+            <p class="export-hint">Context messages are included regardless of role. Matched messages are bolded.</p>
+          </fieldset>
+        </div>
+        <div class="export-preview">
+          <div id="export-summary" aria-live="polite"></div>
+          <pre id="export-preview-text"></pre>
+        </div>
+      </div>
+      <footer class="export-footer">
+        <button type="button" id="export-cancel">Cancel</button>
+        <button type="button" id="export-confirm">Download .md</button>
+      </footer>
+    </form>
+  </dialog>
+
   <section id="historybot" hidden aria-labelledby="historybot-title">
     <header class="historybot-header">
       <div>
@@ -995,6 +1059,13 @@
     }
 
 
+function setWindowFocusClass() {
+  mainImage.classList.add('window-focused');
+  mainImage.classList.remove('window-blur');
+  mainImage.style.animation = 'none';
+  mainImage.style.animation = 'laterman 2s linear forwards';
+}
+
 function removeWindowFocusClass() {
   mainImage.classList.remove('window-focused');
   mainImage.classList.add('window-blur');
@@ -1584,20 +1655,101 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 600);
   }
 
-  // Export search results to a Markdown file
-  function exportSearchResultsToMarkdown() {
+  // ==== EXPORT ====
+  const EXPORT_PREVIEW_CHARS = 2500;  // preview truncation
+  const EXPORT_CONTEXT_DEFAULT = 1;   // fallback for blank "surrounding" count
+
+  const exportModal = document.getElementById('export-modal');
+  const exportForm = document.getElementById('export-form');
+  const exportLimitInput = document.getElementById('export-limit');
+  const exportContextN = document.getElementById('export-context-n');
+  const exportLenMin = document.getElementById('export-len-min');
+  const exportLenMax = document.getElementById('export-len-max');
+  const exportLenUnit = document.getElementById('export-len-unit');
+  const exportSummary = document.getElementById('export-summary');
+  const exportPreviewText = document.getElementById('export-preview-text');
+  const exportConfirm = document.getElementById('export-confirm');
+
+  function readExportOptions() {
+    const limit = parseInt(exportLimitInput.value, 10);
+    const contextN = parseInt(exportContextN.value, 10);
+    const lenMin = parseInt(exportLenMin.value, 10);
+    const lenMax = parseInt(exportLenMax.value, 10);
+    return {
+      lenMin: lenMin > 0 ? lenMin : 0,
+      lenMax: lenMax > 0 ? lenMax : Infinity,
+      lenUnit: exportLenUnit.value,
+      roles: exportForm.querySelector('input[name="export-roles"]:checked')?.value || 'all',
+      limit: limit > 0 ? limit : Infinity,
+      context: exportForm.querySelector('input[name="export-context"]:checked')?.value || 'none',
+      contextN: contextN > 0 ? contextN : EXPORT_CONTEXT_DEFAULT,
+    };
+  }
+
+  function exportRoleAllowed(role, roles) {
+    if (roles === 'all') return true;
+    if (roles === 'user-assistant') return role === 'user' || role === 'assistant';
+    return role === roles;
+  }
+
+  function exportTextLength(message, unit) {
+    const text = getMessageTextParts(message).join(' ').trim();
+    return unit === 'words' ? (text ? text.split(/\s+/).length : 0) : text.length;
+  }
+
+  function exportLengthAllowed(message, opts) {
+    const len = exportTextLength(message, opts.lenUnit);
+    return len >= opts.lenMin && len <= opts.lenMax;
+  }
+
+  function buildExportMarkdown(opts) {
     let md = '';
+    let messageCount = 0;
+    let conversationCount = 0;
     searchResults.forEach((result) => {
-      md += `## ${result.title}\n\n`;
       const messages = getMessagesInOrder(result.conversation);
-      result.matches.forEach(({ messageIndex }) => {
-        const msg = messages[messageIndex];
-        if (msg && msg.message && msg.message.content.parts) {
-          const text = getMessageTextParts(msg.message).join(' ');
-          md += `- ${text}\n\n`;
-        }
+      const matched = result.matches
+        .map(m => m.messageIndex)
+        .filter(i => messages[i] && exportRoleAllowed(messages[i].message.author.role, opts.roles))
+        .filter(i => exportLengthAllowed(messages[i].message, opts))
+        .slice(0, opts.limit);
+      if (matched.length === 0) return;
+
+      const include = new Set();
+      if (opts.context === 'full') {
+        messages.forEach((_, i) => include.add(i));
+      } else {
+        const n = opts.context === 'around' ? opts.contextN : 0;
+        matched.forEach(i => {
+          for (let j = Math.max(0, i - n); j <= Math.min(messages.length - 1, i + n); j++) include.add(j);
+        });
+      }
+
+      const matchedSet = new Set(matched);
+      conversationCount++;
+      md += `## ${result.title}\n\n`;
+      [...include].sort((a, b) => a - b).forEach(i => {
+        const msg = messages[i].message;
+        const role = msg.author.role.toUpperCase();
+        const text = getMessageTextParts(msg).join(' ').replace(/\n/g, '\n  ');  // keep inside the bullet
+        md += matchedSet.has(i) ? `- **${role}**: ${text}\n\n` : `- ${role}: ${text}\n\n`;
+        messageCount++;
       });
     });
+    return { md, messageCount, conversationCount };
+  }
+
+  function updateExportPreview() {
+    const { md, messageCount, conversationCount } = buildExportMarkdown(readExportOptions());
+    const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    exportSummary.textContent = `${plural(messageCount, 'message')} · ${plural(conversationCount, 'conversation')} · ${(md.length / 1024).toFixed(1)} KB`;
+    exportPreviewText.textContent = !md ? '(nothing to export with these options)'
+      : md.length > EXPORT_PREVIEW_CHARS ? md.slice(0, EXPORT_PREVIEW_CHARS) + '\n…' : md;
+    exportConfirm.disabled = messageCount === 0;
+  }
+
+  function downloadExportMarkdown() {
+    const { md } = buildExportMarkdown(readExportOptions());
     const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1607,7 +1759,20 @@ document.addEventListener('DOMContentLoaded', () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    exportModal.close();
   }
+
+  exportForm.addEventListener('submit', (e) => e.preventDefault());
+  exportForm.addEventListener('input', updateExportPreview);
+  exportForm.addEventListener('change', updateExportPreview);
+  exportContextN.addEventListener('focus', () => {
+    exportForm.querySelector('input[name="export-context"][value="around"]').checked = true;
+    updateExportPreview();
+  });
+  exportConfirm.addEventListener('click', downloadExportMarkdown);
+  document.getElementById('export-close').addEventListener('click', () => exportModal.close());
+  document.getElementById('export-cancel').addEventListener('click', () => exportModal.close());
+  exportModal.addEventListener('click', (e) => { if (e.target === exportModal) exportModal.close(); });  // backdrop
 
   // Button event handlers
   btnX.addEventListener('click', () => {
@@ -1637,7 +1802,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   btnExport.addEventListener('click', () => {
-    exportSearchResultsToMarkdown();
+    updateExportPreview();
+    exportModal.showModal();
   });
 
   // Clear the search UI and show all conversations unfiltered
