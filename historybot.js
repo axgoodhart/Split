@@ -376,6 +376,7 @@
       legend: { top: 62, left: 12, right: 12, textStyle: { color: '#D8E2EA' }, type: 'scroll' },
       grid: { left: 54, right: 24, top: 108, bottom: useZoom ? 72 : 42, containLabel: true },
       tooltip: {
+        id: 'toolTip',
         trigger: 'axis',
         axisPointer: { type: 'cross', lineStyle: { color: '#64737f' } },
         backgroundColor: '#182129',
