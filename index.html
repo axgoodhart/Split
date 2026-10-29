@@ -17,7 +17,7 @@
 
       <!-- Boolean search area -->
       <div id="boolean-search-area">
-        <input type="text" class="bool-search-input" id="bool-input-0" placeholder="Select a Conversation" autocomplete="off" data-index="0" />
+        <input type="text" class="bool-search-input" id="bool-input-0" placeholder="Search your conversations" autocomplete="off" data-index="0" />
                 </div>
 
         <div id="bool-actions">
@@ -55,7 +55,7 @@
     <img id="main-image" src="resource/chimein.png" />
 
   <div id="main">
-    <ah1 id="conversation-title">Conversation:</ah1>
+    <ah1 id="conversation-title">Select a conversation</ah1>
     <div id="conversationView"></div>
   </div>
 
@@ -215,7 +215,7 @@
           inp.dataset.segId = seg.id;
           inp.autocomplete = 'off';
           if (idx === 0 && boolSegments.length === 1) {
-            inp.placeholder = 'Select a Conversation';
+            inp.placeholder = 'enter a search term...';
           } else {
             inp.placeholder = 'Search...';
           }
