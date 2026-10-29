@@ -1,1 +1,7 @@
 search-cache/
+node_modules/
+.DS_Store
+.history/
+firebase-debug.log
+Split New Format/
+resource/conversations.json
